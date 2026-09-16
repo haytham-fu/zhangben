@@ -127,19 +127,19 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
         {planOn ? (
           <>
             <ProgressBar
-              label="基础生活 3500"
+              label={`基础生活 ${settings.basicBudget}`}
               used={basicUsed}
               budget={settings.basicBudget}
               status={budgetStatus(basicUsed, settings.basicBudget)}
             />
             <ProgressBar
-              label="专项 1500"
+              label={`专项 ${settings.specialBudget}`}
               used={specialUsed}
               budget={settings.specialBudget}
               status={budgetStatus(specialUsed, settings.specialBudget)}
             />
             <ProgressBar
-              label="合计 5000"
+              label={`合计 ${totalBudget}`}
               used={totalUsed}
               budget={totalBudget}
               status={budgetStatus(totalUsed, totalBudget)}

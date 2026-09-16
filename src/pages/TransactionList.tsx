@@ -13,11 +13,18 @@ interface Props {
   store: Store;
 }
 
+const TYPE_LABEL = {
+  all: '全部',
+  expense: '支出',
+  income: '收入',
+} as const;
+
 export function TransactionList({ store }: Props) {
   const { transactions, categoryMap, walletMap, categories, currentYm, deleteTransaction } = store;
   const [ym, setYm] = useState(currentYm);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
 
   const list = useMemo(() => {
@@ -33,6 +40,14 @@ export function TransactionList({ store }: Props) {
     .reduce((a, t) => a + t.amountRmb, 0);
   const sumIncome = list.filter((t) => t.type === 'income').reduce((a, t) => a + t.amountRmb, 0);
 
+  const filterActive = filter !== 'all' || payFilter !== 'all';
+  const filterSummary = [
+    TYPE_LABEL[filter],
+    payFilter === 'all' ? '支付不限' : PAYMENT_LABEL[payFilter],
+  ].join(' · ');
+
+  const closeFilterSheet = () => setFilterOpen(false);
+
   return (
     <>
       <GlassCard title="流水明细">
@@ -40,42 +55,18 @@ export function TransactionList({ store }: Props) {
           <label>月份</label>
           <input type="month" value={ym} onChange={(e) => setYm(e.target.value)} />
         </div>
-        <div className="chip-row" style={{ marginBottom: 8 }}>
-          {(
-            [
-              ['all', '全部'],
-              ['expense', '支出'],
-              ['income', '收入'],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              className={`chip ${filter === k ? 'active' : ''}`}
-              onClick={() => setFilter(k)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="chip-row" style={{ marginBottom: 12 }}>
+        <div className="tx-filter-bar">
           <button
             type="button"
-            className={`chip ${payFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setPayFilter('all')}
+            className={`tx-filter-btn ${filterActive ? 'has-filter' : ''}`}
+            onClick={() => setFilterOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={filterOpen}
           >
-            支付不限
+            <span className="tx-filter-btn-label">筛选</span>
+            <span className="tx-filter-btn-summary">{filterSummary}</span>
+            {filterActive && <span className="tx-filter-badge" aria-hidden />}
           </button>
-          {PAYMENT_OPTIONS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              className={`chip ${payFilter === o.id ? 'active' : ''}`}
-              onClick={() => setPayFilter(o.id)}
-            >
-              {o.label}
-            </button>
-          ))}
         </div>
         <div className="stat-grid" style={{ marginBottom: 12 }}>
           <div className="stat-pill">
@@ -108,6 +99,74 @@ export function TransactionList({ store }: Props) {
         )}
       </GlassCard>
 
+      {filterOpen && (
+        <div className="modal-backdrop" onClick={closeFilterSheet} role="presentation">
+          <div
+            className="modal-sheet"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="筛选流水"
+          >
+            <div className="modal-handle" />
+            <h2 className="glass-title">筛选</h2>
+
+            <section className="tx-filter-section">
+              <p className="sheet-section-label tx-filter-section-title">收支</p>
+              <div className="chip-row">
+                {(
+                  [
+                    ['all', '全部'],
+                    ['expense', '支出'],
+                    ['income', '收入'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={`chip ${filter === k ? 'active' : ''}`}
+                    onClick={() => setFilter(k)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="tx-filter-section section-gap">
+              <p className="sheet-section-label tx-filter-section-title">支付方式</p>
+              <div className="chip-row">
+                <button
+                  type="button"
+                  className={`chip ${payFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setPayFilter('all')}
+                >
+                  支付不限
+                </button>
+                {PAYMENT_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`chip ${payFilter === o.id ? 'active' : ''}`}
+                    onClick={() => setPayFilter(o.id)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <button
+              type="button"
+              className="btn btn-primary btn-block section-gap"
+              onClick={closeFilterSheet}
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      )}
+
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)} role="presentation">
           <div
@@ -124,11 +183,10 @@ export function TransactionList({ store }: Props) {
             </p>
             <p className="hint">
               {selected.date} · {selected.bucket === 'special' ? '专项' : '基础'}
-              {selected.isSpecial ? ' · 请客特例' : ''}{selected.isMonthly ? ' · 月度支出' : ''}
+              {selected.isSpecial ? ' · 请客特例' : ''}
+              {selected.isMonthly ? ' · 月度支出' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出' : ''}
-              {selected.paymentMethod !== 'none'
-                ? ` · ${PAYMENT_LABEL[selected.paymentMethod]}`
-                : ''}
+              {selected.paymentMethod !== 'none' ? ` · ${PAYMENT_LABEL[selected.paymentMethod]}` : ''}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 750, margin: '12px 0' }}>
               {selected.type === 'income' ? '+' : selected.kind === 'topup' ? '' : '-'}

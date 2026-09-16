@@ -341,7 +341,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 </div>
               </div>
               <p className="hint" style={{ marginTop: -6, marginBottom: 10 }}>
-                ≈ {formatRmb(previewRmb)} · 预算桶：{bucket === 'special' ? '专项 1500' : '基础 3500'}
+                ≈ {formatRmb(previewRmb)} · 预算桶：{bucket === 'special' ? `专项 ${settings.specialBudget}` : `基础 ${settings.basicBudget}`}
                 {rateLoading ? ' · 汇率刷新中…' : rateNote ? ` · ${rateNote}` : ''}
               </p>
               <div className="toggle-row">

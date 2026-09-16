@@ -31,7 +31,9 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>账本</h1>
-          <p className="subtitle">本地记账 · 3500 + 1500</p>
+          <p className="subtitle">
+            本地记账 · {store.settings.basicBudget} + {store.settings.specialBudget}
+          </p>
         </div>
       </header>
 
