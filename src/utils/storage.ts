@@ -1,5 +1,5 @@
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, DEFAULT_WALLETS, STORAGE_KEY } from './defaults';
-import type { AppState, Category, ForeignCurrency, Settings, Transaction, Wallet } from '../types';
+import type { AppState, Category, ForeignCurrency, PantryItem, Settings, Transaction, Wallet } from '../types';
 import {
   DEFAULT_FIXED_RATES,
   FOREIGN_CURRENCIES,
@@ -7,6 +7,7 @@ import {
   isForeignCurrency,
   normalizePreferredCurrencies,
 } from './currency';
+import { costPerMeal, roundMoney } from './grocery';
 import { normalizeWallet } from './wallets';
 
 function safeParse<T>(raw: string | null): T | null {
@@ -32,6 +33,13 @@ function normalizeTransactions(list: unknown): Transaction[] {
       walletId: tx.walletId ?? null,
       isMonthly: legacyMonthly,
       isSpecial: Boolean(tx.isSpecial),
+      isGroceryPurchase: Boolean(tx.isGroceryPurchase),
+      groceryLotIds: Array.isArray(tx.groceryLotIds) ? tx.groceryLotIds.map(String) : undefined,
+      pantryUseIds: Array.isArray(tx.pantryUseIds) ? tx.pantryUseIds.map(String) : undefined,
+      pantryCostRmb:
+        typeof tx.pantryCostRmb === 'number' && Number.isFinite(tx.pantryCostRmb)
+          ? roundMoney(tx.pantryCostRmb)
+          : undefined,
     };
   });
 }
@@ -42,6 +50,53 @@ function normalizeWallets(list: unknown): Wallet[] {
   for (const item of list) {
     const w = normalizeWallet(item as Partial<Wallet>);
     if (w) out.push(w);
+  }
+  return out;
+}
+
+function normalizePantryItems(list: unknown): PantryItem[] {
+  if (!Array.isArray(list)) return [];
+  const out: PantryItem[] = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== 'object') continue;
+    const p = raw as Partial<PantryItem>;
+    const id = typeof p.id === 'string' && p.id ? p.id : null;
+    const name = typeof p.name === 'string' ? p.name.trim() : '';
+    if (!id || !name) continue;
+    const costRmb = typeof p.costRmb === 'number' && p.costRmb >= 0 ? roundMoney(p.costRmb) : 0;
+    const mealsTotal =
+      typeof p.mealsTotal === 'number' && p.mealsTotal > 0 ? Math.round(p.mealsTotal * 10) / 10 : 1;
+    let mealsLeft =
+      typeof p.mealsLeft === 'number' && Number.isFinite(p.mealsLeft)
+        ? Math.round(Math.max(0, p.mealsLeft) * 10) / 10
+        : mealsTotal;
+    if (mealsLeft > mealsTotal) mealsLeft = mealsTotal;
+    const cpm =
+      typeof p.costPerMeal === 'number' && p.costPerMeal >= 0
+        ? roundMoney(p.costPerMeal)
+        : costPerMeal(costRmb, mealsTotal);
+    const kind = p.kind ?? 'custom';
+    out.push({
+      id,
+      name,
+      kind:
+        kind === 'veg' ||
+        kind === 'meat' ||
+        kind === 'egg' ||
+        kind === 'staple' ||
+        kind === 'fruit' ||
+        kind === 'seasoning' ||
+        kind === 'custom'
+          ? kind
+          : 'custom',
+      costRmb,
+      mealsTotal,
+      mealsLeft,
+      costPerMeal: cpm,
+      boughtDate: typeof p.boughtDate === 'string' && p.boughtDate ? p.boughtDate : '',
+      notes: typeof p.notes === 'string' ? p.notes : undefined,
+      purchaseTxId: p.purchaseTxId ?? null,
+    });
   }
   return out;
 }
@@ -113,9 +168,15 @@ export function normalizeSettings(raw: unknown): Settings {
 function normalizeCategories(list: unknown): Category[] {
   const base =
     Array.isArray(list) && list.length > 0 ? (list as Category[]) : [...DEFAULT_CATEGORIES];
-  return base.map((c) =>
-    c.id === 'membership' ? { ...c, name: '月度支出', icon: c.icon === '🎵' ? '📅' : c.icon || '📅' } : c,
-  );
+  return base.map((c) => {
+    if (c.id === 'membership') {
+      return { ...c, name: '月度支出', icon: c.icon === '🎵' ? '📅' : c.icon || '📅' };
+    }
+    if (c.id === 'groceries') {
+      return { ...c, name: '买菜支出', icon: c.icon || '🥬' };
+    }
+    return c;
+  });
 }
 
 export function loadState(): AppState {
@@ -125,6 +186,7 @@ export function loadState(): AppState {
     transactions: normalizeTransactions(data?.transactions),
     categories: normalizeCategories(data?.categories),
     wallets: data?.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
+    pantryItems: normalizePantryItems(data?.pantryItems),
   };
 }
 
@@ -143,6 +205,7 @@ export function importJson(raw: string): AppState {
     transactions: normalizeTransactions(data.transactions),
     categories: normalizeCategories(data.categories),
     wallets: data.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
+    pantryItems: normalizePantryItems(data.pantryItems),
   };
 }
 

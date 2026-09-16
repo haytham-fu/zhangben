@@ -14,6 +14,7 @@ import {
 import type { DeepLinkAddPrefill } from '../utils/deepLink';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
+import { CookFromPantryFlow } from '../components/CookFromPantryFlow';
 import { ModalPortal } from '../components/ModalPortal';
 import { OcrImport } from './OcrImport';
 
@@ -24,8 +25,8 @@ interface Props {
   onDeepLinkConsumed?: () => void;
 }
 
-type Mode = 'hub' | 'wizard' | 'ocr' | 'income' | 'topup' | 'batch';
-type WizardStep = 'category' | 'payment' | 'details';
+type Mode = 'hub' | 'wizard' | 'ocr' | 'income' | 'topup' | 'batch' | 'cook';
+type WizardStep = 'category' | 'foodWhere' | 'payment' | 'details';
 
 export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsumed }: Props) {
   const { categories, wallets, settings, todayStr, addTransaction, updateSettings } = store;
@@ -56,7 +57,13 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   }, [categoryId, type, kind]);
 
   const expenseCats = useMemo(
-    () => categories.filter((c) => !c.id.startsWith('income_') && c.id !== 'octopus_topup'),
+    () =>
+      categories.filter(
+        (c) =>
+          !c.id.startsWith('income_') &&
+          c.id !== 'octopus_topup' &&
+          c.id !== 'groceries', // 买菜走「自己做饭 → 添加食材购置支出」
+      ),
     [categories],
   );
 
@@ -264,6 +271,20 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     );
   }
 
+  if (mode === 'cook') {
+    return (
+      <CookFromPantryFlow
+        store={store}
+        onCancel={() => {
+          setMode('wizard');
+          setWizardStep('foodWhere');
+          setCategoryId('food');
+        }}
+        onDone={onDone}
+      />
+    );
+  }
+
   if (mode === 'hub') {
     return (
       <>
@@ -445,7 +466,8 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                       onClick={() => {
                         setCategoryId(c.id);
                         setWalletId(null);
-                        setWizardStep('payment');
+                        if (c.id === 'food') setWizardStep('foodWhere');
+                        else setWizardStep('payment');
                       }}
                     >
                       <span className="emoji emoji-bubble">{c.icon}</span>
@@ -465,7 +487,8 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                       onClick={() => {
                         setCategoryId(c.id);
                         setWalletId(null);
-                        setWizardStep('payment');
+                        if (c.id === 'food') setWizardStep('foodWhere');
+                        else setWizardStep('payment');
                       }}
                     >
                       <span className="emoji emoji-bubble">{c.icon}</span>
@@ -474,7 +497,56 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   ))}
               </div>
               <button type="button" className="btn btn-secondary btn-block section-gap" onClick={() => setMode('hub')}>
-                取消
+                退出
+              </button>
+            </div>
+          </div>
+          </ModalPortal>
+        )}
+
+
+        {wizardStep === 'foodWhere' && (
+          <ModalPortal>
+          <div className="modal-backdrop" role="presentation" onClick={() => setWizardStep('category')}>
+            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="吃饭方式" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-handle" />
+              <h2 className="glass-title">吃饭方式</h2>
+              <p className="hint" style={{ marginBottom: 12 }}>
+                已选：🍜 吃饭（基础）
+              </p>
+              <div className="food-where-grid">
+                <button
+                  type="button"
+                  className="food-where-btn"
+                  onClick={() => setWizardStep('payment')}
+                >
+                  <span className="emoji emoji-bubble" aria-hidden>🥡</span>
+                  <strong>在外吃饭</strong>
+                  <span className="hint">点外卖 / 食堂 / 餐馆</span>
+                </button>
+                <button
+                  type="button"
+                  className="food-where-btn"
+                  onClick={() => setMode('cook')}
+                >
+                  <span className="emoji emoji-bubble" aria-hidden>🍳</span>
+                  <strong>自己做饭</strong>
+                  <span className="hint">用库存食材均摊记一顿</span>
+                </button>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block section-gap"
+                onClick={() => setWizardStep('category')}
+              >
+                返回改类型
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                onClick={() => setMode('hub')}
+              >
+                退出
               </button>
             </div>
           </div>
@@ -511,9 +583,14 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               <button
                 type="button"
                 className="btn btn-secondary btn-block section-gap"
-                onClick={() => setWizardStep('category')}
+                onClick={() =>
+                  setWizardStep(categoryId === 'food' ? 'foodWhere' : 'category')
+                }
               >
-                返回改类型
+                返回
+              </button>
+              <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('hub')}>
+                退出
               </button>
             </div>
           </div>

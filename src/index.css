@@ -2429,3 +2429,218 @@ html[data-palette="lilac"] {
 .tx-filter-section .chip-row {
   gap: 10px;
 }
+
+/* —— 买菜 / 做饭均摊 —— */
+.food-where-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.food-where-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 16px 18px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-highlight);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+  color: inherit;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.food-where-btn:active {
+  transform: scale(0.98);
+}
+
+.food-where-btn strong {
+  font-size: 1.05rem;
+}
+
+.grocery-kind-row {
+  flex-wrap: wrap;
+}
+
+.grocery-draft-list,
+.pantry-pick-list,
+.pantry-inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.grocery-draft-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-soft);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+.grocery-draft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.grocery-summary-pill {
+  padding: 12px 14px;
+  border-radius: var(--radius-soft);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(147, 197, 253, 0.45);
+}
+
+.grocery-summary-lines {
+  margin: 8px 0 0;
+  padding-left: 1.1em;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pantry-pick-list > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.pantry-pick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-soft);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.32);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pantry-pick-btn.active {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(219, 234, 254, 0.55);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+
+.pantry-pick-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pantry-pick-main span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pantry-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(100, 116, 139, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: white;
+}
+
+.pantry-check.on {
+  background: var(--blue-500);
+  border-color: var(--blue-500);
+}
+
+.pantry-del {
+  justify-self: end;
+}
+
+.pantry-inventory-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.pantry-inventory-list.muted {
+  opacity: 0.72;
+}
+
+.pantry-inventory-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cook-sticky-spacer {
+  height: 88px;
+}
+
+.cook-sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9000;
+  padding: 10px 14px calc(12px + var(--safe-bottom) + var(--dock-height));
+  pointer-events: none;
+}
+
+.cook-sticky-inner {
+  pointer-events: auto;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(219, 234, 254, 0.5) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
+
+.cook-sticky-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cook-sticky-total strong {
+  font-size: 1.15rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .food-where-btn:active {
+    transform: none;
+  }
+}

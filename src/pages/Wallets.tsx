@@ -1,6 +1,7 @@
-import { ModalPortal } from '../components/ModalPortal';
 import { useMemo, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { ModalPortal } from '../components/ModalPortal';
+import { PantryPanel } from '../components/PantryPanel';
 import { ProgressBar } from '../components/ProgressBar';
 import type { Store } from '../hooks/useStore';
 import type { Wallet } from '../types';
@@ -145,6 +146,8 @@ export function WalletsPage({ store }: Props) {
         </GlassCard>
       </div>
 
+      <PantryPanel store={store} />
+
       <GlassCard title="我的小荷包">
         <ul className="wallet-list">
             {sortedWallets.map((w) => {
@@ -209,7 +212,7 @@ export function WalletsPage({ store }: Props) {
                 创建（自动命名上色）
               </button>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setAdding(false)}>
-                取消
+                退出
               </button>
             </div>
           </div>
@@ -255,7 +258,7 @@ export function WalletsPage({ store }: Props) {
                 保存
               </button>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setEdit(null)}>
-                取消
+                退出
               </button>
             </div>
           </div>

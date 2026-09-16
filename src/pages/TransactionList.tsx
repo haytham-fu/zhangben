@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { IconEmptyLedger } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
+import { ModalPortal } from '../components/ModalPortal';
 import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
 import type { PaymentMethod, Transaction } from '../types';
@@ -100,6 +101,7 @@ export function TransactionList({ store }: Props) {
       </GlassCard>
 
       {filterOpen && (
+        <ModalPortal>
         <div className="modal-backdrop" onClick={closeFilterSheet} role="presentation">
           <div
             className="modal-sheet"
@@ -163,11 +165,20 @@ export function TransactionList({ store }: Props) {
             >
               完成
             </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              onClick={closeFilterSheet}
+            >
+              退出
+            </button>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {selected && (
+        <ModalPortal>
         <div className="modal-backdrop" onClick={() => setSelected(null)} role="presentation">
           <div
             className="modal-sheet"
@@ -197,6 +208,10 @@ export function TransactionList({ store }: Props) {
                 原币 {formatMoney(selected.amount, selected.currency)} × {selected.rate}
               </p>
             )}
+            {selected.pantryCostRmb != null && selected.pantryCostRmb > 0 && (
+              <p className="hint">库存均摊约 {formatRmb(selected.pantryCostRmb)}</p>
+            )}
+            {selected.isGroceryPurchase && <p className="hint">买菜购置（已入冰箱）</p>}
             {selected.note && <p style={{ marginTop: 8 }}>备注：{selected.note}</p>}
             <button
               type="button"
@@ -213,10 +228,11 @@ export function TransactionList({ store }: Props) {
               className="btn btn-secondary btn-block section-gap"
               onClick={() => setSelected(null)}
             >
-              关闭
+              退出
             </button>
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );

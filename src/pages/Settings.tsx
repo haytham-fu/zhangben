@@ -70,6 +70,7 @@ export function SettingsPage({ store }: Props) {
           settings: nextSettings,
           transactions: sample.transactions,
           wallets: sample.wallets.length > 0 ? sample.wallets : state.wallets,
+          pantryItems: sample.pantryItems ?? state.pantryItems,
         });
         alert(`已替换导入 ${sample.transactions.length} 条样例流水`);
       } else {
@@ -77,11 +78,14 @@ export function SettingsPage({ store }: Props) {
         const added = sample.transactions.filter((t) => !have.has(t.id));
         const haveW = new Set(state.wallets.map((w) => w.id));
         const addedW = sample.wallets.filter((w) => !haveW.has(w.id));
+        const haveP = new Set(state.pantryItems.map((x) => x.id));
+        const addedP = (sample.pantryItems ?? []).filter((x) => !haveP.has(x.id));
         replaceState({
           ...state,
           settings: nextSettings,
           transactions: [...added, ...state.transactions],
           wallets: [...state.wallets, ...addedW],
+          pantryItems: [...state.pantryItems, ...addedP],
         });
         alert(
           `已合并 ${added.length} 条样例流水（跳过 ${sample.transactions.length - added.length} 条重复）`,
