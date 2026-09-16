@@ -164,7 +164,7 @@ export function WalletsPage({ store }: Props) {
   }
 
   return (
-    <>
+    <div className="wallets-page">
       <GlassCard
         title="小荷包"
         action={
@@ -541,6 +541,6 @@ export function WalletsPage({ store }: Props) {
           </div>
         </ModalPortal>
       )}
-    </>
+    </div>
   );
 }

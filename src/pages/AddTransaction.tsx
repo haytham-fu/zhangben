@@ -14,7 +14,15 @@ import {
 import type { DeepLinkAddPrefill } from '../utils/deepLink';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
+import { CapacityEstimatePanel } from '../components/CapacityEstimatePanel';
 import { CookFromPantryFlow } from '../components/CookFromPantryFlow';
+import type { CapUnit } from '../utils/capacityEstimate';
+import {
+  defaultUnit,
+  estimateFromCapacity,
+  findProductProfile,
+  sundryProfiles,
+} from '../utils/capacityEstimate';
 import { ModalPortal } from '../components/ModalPortal';
 import { OcrImport } from './OcrImport';
 
@@ -43,6 +51,10 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   const [isMonthly, setIsMonthly] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('other');
   const [walletId, setWalletId] = useState<string | null>(null);
+  const [sundryName, setSundryName] = useState('');
+  const [sundryCapacityRaw, setSundryCapacityRaw] = useState('1');
+  const [sundryCapacityUnit, setSundryCapacityUnit] = useState<CapUnit>('瓶');
+  const [sundryManualNote, setSundryManualNote] = useState(false);
   const [batchText, setBatchText] = useState('');
   const [rateNote, setRateNote] = useState('');
   const [resolvedRate, setResolvedRate] = useState(1);
@@ -125,6 +137,10 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setCurrency('RMB');
     setPaymentMethod('other');
     setWalletId(null);
+    setSundryName('');
+    setSundryCapacityRaw('1');
+    setSundryCapacityUnit('瓶');
+    setSundryManualNote(false);
   }
 
   function startExpenseWizard(prefill?: DeepLinkAddPrefill | null) {
@@ -399,9 +415,61 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   已标为月度支出，分类「月度支出」· 专项桶，不拆入日计划。
                 </p>
               )}
+              {categoryId === 'sundries' && (() => {
+                const profile = findProductProfile(sundryName);
+                const amt = parseFloat(sundryCapacityRaw);
+                const est =
+                  profile && Number.isFinite(amt) && amt > 0
+                    ? estimateFromCapacity(profile, amt, sundryCapacityUnit)
+                    : null;
+                return (
+                  <div className="section-gap">
+                    <p className="sheet-section-label">日用品容量估算</p>
+                    <CapacityEstimatePanel
+                      profile={profile}
+                      capacityRaw={sundryCapacityRaw}
+                      capacityUnit={sundryCapacityUnit}
+                      profiles={sundryProfiles()}
+                      selectedName={profile?.name ?? sundryName}
+                      onSelectProfile={(p) => {
+                        setSundryName(p.name);
+                        const u = defaultUnit(p);
+                        setSundryCapacityUnit(u);
+                        if (!sundryCapacityRaw) setSundryCapacityRaw('1');
+                        const e = estimateFromCapacity(p, parseFloat(sundryCapacityRaw || '1'), u);
+                        if (e && !sundryManualNote) {
+                          setNote(`${p.name} · ${e.shortLabel}`);
+                        } else if (!sundryManualNote) {
+                          setNote(p.name);
+                        }
+                      }}
+                      onCapacityChange={(raw, unit) => {
+                        setSundryCapacityRaw(raw);
+                        setSundryCapacityUnit(unit);
+                        const p = findProductProfile(sundryName);
+                        if (p && !sundryManualNote) {
+                          const e = estimateFromCapacity(p, parseFloat(raw), unit);
+                          if (e) setNote(`${p.name} · ${e.shortLabel}`);
+                        }
+                      }}
+                      footerHint="估算会写入备注，也可自行修改"
+                    />
+                    {est && (
+                      <p className="capacity-estimate-line">{est.label}</p>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="field">
                 <label>备注</label>
-                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />
+                <input
+                  value={note}
+                  onChange={(e) => {
+                    setNote(e.target.value);
+                    setSundryManualNote(true);
+                  }}
+                  placeholder="可选"
+                />
               </div>
               <div className="field">
                 <label>小荷包（可选）</label>

@@ -8,20 +8,59 @@ interface Props {
   budget: number;
 }
 
-type Nugget = {
+type Brick = {
+  row: number;
+  col: number;
   x: number;
   y: number;
-  w: number;
-  h: number;
-  rx: number;
-  fill: string;
-  /** Min ratio to show this piece (stack grows with budget left) */
+  /** Show when remaining ratio >= this (higher rows need more surplus) */
   min: number;
+  shade: 0 | 1 | 2;
 };
 
+const COLS = 10;
+const ROWS = 7;
+const BRICK_W = 28;
+const BRICK_H = 12;
+const GAP_X = 2.5;
+const GAP_Y = 2.5;
+const PAD_X = 8;
+const VIEW_W = PAD_X * 2 + COLS * BRICK_W + (COLS - 1) * GAP_X;
+const VIEW_H = 18 + ROWS * BRICK_H + (ROWS - 1) * GAP_Y + 22;
+
+function buildBricks(): Brick[] {
+  const bricks: Brick[] = [];
+  // Pyramid wall: top tip narrow, base wide; top layers need more remaining budget
+  for (let row = 0; row < ROWS; row++) {
+    // row 0 = top of SVG; row ROWS-1 = base
+    const fromBottom = ROWS - 1 - row;
+    const colsInRow = COLS - fromBottom; // tip ~4 … base 10
+    const offsetCols = (COLS - colsInRow) / 2;
+    // Base always visible; tip only when surplus high
+    const rowMin = fromBottom / ROWS;
+    for (let c = 0; c < colsInRow; c++) {
+      const col = offsetCols + c;
+      const x = PAD_X + col * (BRICK_W + GAP_X);
+      const y = 14 + row * (BRICK_H + GAP_Y);
+      const colT = (c / Math.max(1, colsInRow - 1)) * (0.06 / ROWS);
+      bricks.push({
+        row,
+        col: c,
+        x,
+        y,
+        min: Math.min(0.92, rowMin + colT),
+        shade: ((row + c) % 3) as 0 | 1 | 2,
+      });
+    }
+  }
+  return bricks;
+}
+
+const ALL_BRICKS = buildBricks();
+
 /**
- * Cartoon-cute 小金山 — soft gold nuggets / ingots heaped in piles.
- * Heap height morphs with remaining budget; bounce when the amount changes.
+ * 小金山 — neat stacked gold bricks / 金砖 wall.
+ * Layers disappear as remaining budget drops; full surplus = tall wide wall.
  */
 export function GoldMountain({ remaining, budget }: Props) {
   const ratio = useMemo(() => {
@@ -43,209 +82,143 @@ export function GoldMountain({ remaining, budget }: Props) {
     return () => cancelAnimationFrame(id);
   }, [remaining]);
 
-  // Soft natural gold fills (not neon)
-  const fills = {
-    light: 'url(#gm-ingot-light)',
-    mid: 'url(#gm-ingot-mid)',
-    deep: 'url(#gm-ingot-deep)',
-    warm: 'url(#gm-ingot-warm)',
-  };
+  const fills = ['url(#gm-brick-a)', 'url(#gm-brick-b)', 'url(#gm-brick-c)'] as const;
 
-  // Stacked piles: bottom wide → top tip. y grows downward in SVG.
-  const nuggets: Nugget[] = [
-    // Base row (left pile)
-    { x: 10, y: 68, w: 28, h: 16, rx: 6, fill: fills.deep, min: 0 },
-    { x: 34, y: 70, w: 30, h: 15, rx: 6, fill: fills.mid, min: 0 },
-    { x: 60, y: 69, w: 28, h: 16, rx: 6, fill: fills.warm, min: 0 },
-    { x: 84, y: 71, w: 26, h: 14, rx: 6, fill: fills.deep, min: 0.05 },
-    // Second tier
-    { x: 18, y: 54, w: 26, h: 15, rx: 6, fill: fills.mid, min: 0.12 },
-    { x: 42, y: 52, w: 30, h: 16, rx: 7, fill: fills.light, min: 0.08 },
-    { x: 70, y: 55, w: 28, h: 15, rx: 6, fill: fills.warm, min: 0.15 },
-    // Third tier
-    { x: 28, y: 39, w: 27, h: 14, rx: 6, fill: fills.warm, min: 0.28 },
-    { x: 52, y: 37, w: 30, h: 15, rx: 7, fill: fills.light, min: 0.22 },
-    { x: 78, y: 42, w: 22, h: 13, rx: 6, fill: fills.mid, min: 0.35 },
-    // Peak nuggets
-    { x: 40, y: 24, w: 26, h: 14, rx: 7, fill: fills.light, min: 0.45 },
-    { x: 58, y: 22, w: 24, h: 13, rx: 6, fill: fills.warm, min: 0.55 },
-    // Tiny crown nugget
-    { x: 50, y: 12, w: 20, h: 12, rx: 6, fill: fills.light, min: 0.7 },
-  ];
-
-  const visible = nuggets.filter((n) => ratio >= n.min || (over && n.min <= 0.12));
-  const showFace = ratio >= 0.18 && !over;
-  const sparkle = ratio > 0.35;
-  const bigSparkle = ratio >= 0.7;
-
-  // Scale whole heap slightly with ratio (morph), floor so empty isn't invisible
-  const heapScale = 0.72 + ratio * 0.28;
-  const heapY = (1 - heapScale) * 40;
-
-  const faceNugget = visible.find((n) => n.min >= 0.22) ?? visible[visible.length - 1];
-  const faceCx = faceNugget ? faceNugget.x + faceNugget.w / 2 : 60;
-  const faceCy = faceNugget ? faceNugget.y + faceNugget.h * 0.45 : 48;
+  const visibleCount = ALL_BRICKS.filter((b) => ratio >= b.min || (over && b.min <= 0.02)).length;
 
   return (
     <div
       className={`gold-mountain gold-mountain--${level}${over ? ' gold-mountain--over' : ''}${bump ? ' gold-mountain--bump' : ''}`}
       role="img"
-      aria-label={`小金山：本月剩余 ${formatRmb(remaining)}`}
+      aria-label={`小金山：本月剩余 ${formatRmb(remaining)}，金砖 ${visibleCount} 块`}
       onAnimationEnd={(e) => {
         if (e.animationName === 'gm-stack-bounce') setBump(false);
       }}
     >
-      <svg viewBox="0 0 120 96" className="gold-mountain-svg" aria-hidden>
+      <svg
+        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        className="gold-mountain-svg"
+        aria-hidden
+        preserveAspectRatio="xMidYMid meet"
+      >
         <defs>
           <linearGradient id="gm-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#DBEAFE" stopOpacity="0.45" />
+            <stop offset="0%" stopColor="#DBEAFE" stopOpacity="0.4" />
             <stop offset="100%" stopColor="#EFF6FF" stopOpacity="0" />
           </linearGradient>
-          <linearGradient id="gm-ingot-light" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFF8E8" />
-            <stop offset="40%" stopColor="#F3DFB0" />
-            <stop offset="100%" stopColor="#D9B87A" />
+          {/* Clean rectangular gold bars */}
+          <linearGradient id="gm-brick-a" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFF6DC" />
+            <stop offset="35%" stopColor="#F0D78A" />
+            <stop offset="100%" stopColor="#C9A24E" />
           </linearGradient>
-          <linearGradient id="gm-ingot-mid" x1="0" y1="0" x2="0.15" y2="1">
-            <stop offset="0%" stopColor="#F8EDD0" />
-            <stop offset="50%" stopColor="#E4C48A" />
-            <stop offset="100%" stopColor="#C9A066" />
+          <linearGradient id="gm-brick-b" x1="0" y1="0" x2="0.08" y2="1">
+            <stop offset="0%" stopColor="#FFF0C8" />
+            <stop offset="40%" stopColor="#E8C56A" />
+            <stop offset="100%" stopColor="#B89240" />
           </linearGradient>
-          <linearGradient id="gm-ingot-deep" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#EED9A8" />
-            <stop offset="55%" stopColor="#D0AE72" />
-            <stop offset="100%" stopColor="#B89050" />
+          <linearGradient id="gm-brick-c" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFE9B0" />
+            <stop offset="45%" stopColor="#DDB856" />
+            <stop offset="100%" stopColor="#A87E32" />
           </linearGradient>
-          <linearGradient id="gm-ingot-warm" x1="0.1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFF4DC" />
-            <stop offset="45%" stopColor="#E8C98A" />
-            <stop offset="100%" stopColor="#C4A06A" />
+          <linearGradient id="gm-brick-side" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.35" />
+            <stop offset="40%" stopColor="#FFFFFF" stopOpacity="0" />
+            <stop offset="100%" stopColor="#7A5A18" stopOpacity="0.18" />
           </linearGradient>
-          <linearGradient id="gm-ground" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#BFDBFE" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.1" />
-          </linearGradient>
-          <filter id="gm-soft" x="-15%" y="-15%" width="130%" height="140%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="0.55" result="b" />
-            <feOffset dy="1.1" result="o" />
-            <feColorMatrix
-              in="o"
-              type="matrix"
-              values="0 0 0 0 0.7  0 0 0 0 0.55  0 0 0 0 0.32  0 0 0 0.16 0"
-            />
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
+          <filter id="gm-brick-soft" x="-8%" y="-12%" width="116%" height="130%">
+            <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor="#8B6914" floodOpacity="0.22" />
           </filter>
         </defs>
 
-        <rect x="0" y="0" width="120" height="96" fill="url(#gm-sky)" rx="18" />
-        <ellipse cx="60" cy="88" rx="48" ry="8" fill="url(#gm-ground)" />
+        <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="url(#gm-sky)" rx="14" />
 
         <g
           className="gm-heap"
-          filter="url(#gm-soft)"
-          style={{
-            transformOrigin: '60px 84px',
-            transform: `translateY(${heapY}px) scale(${heapScale})`,
-            opacity: over ? 0.55 : 0.72 + ratio * 0.28,
-          }}
+          filter="url(#gm-brick-soft)"
+          style={{ opacity: over ? 0.5 : 0.88 + ratio * 0.12 }}
         >
-          {nuggets.map((n, i) => {
-            const on = ratio >= n.min || (over && n.min <= 0.12);
+          {ALL_BRICKS.map((b, i) => {
+            const on = ratio >= b.min || (over && b.min <= 0.02);
+            const rx = 2.2;
             return (
               <g
-                key={i}
-                className={`gm-nugget${on ? ' gm-nugget--on' : ''}`}
+                key={`${b.row}-${b.col}`}
+                className={`gm-brick${on ? ' gm-brick--on' : ''}`}
                 style={{
                   opacity: on ? 1 : 0,
-                  transform: on ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.85)',
-                  transformOrigin: `${n.x + n.w / 2}px ${n.y + n.h}px`,
-                  transitionDelay: `${Math.min(i * 28, 280)}ms`,
+                  transform: on ? 'translateY(0) scale(1)' : 'translateY(6px) scale(0.92)',
+                  transformOrigin: `${b.x + BRICK_W / 2}px ${b.y + BRICK_H}px`,
+                  transitionDelay: on ? `${Math.min(i * 12, 220)}ms` : '0ms',
                 }}
               >
-                <rect x={n.x} y={n.y} width={n.w} height={n.h} rx={n.rx} fill={n.fill} />
-                {/* soft top bevel highlight */}
+                {/* Main bar */}
                 <rect
-                  x={n.x + 3}
-                  y={n.y + 2}
-                  width={n.w - 6}
-                  height={Math.max(3, n.h * 0.28)}
-                  rx={n.rx * 0.55}
-                  fill="#FFFBF0"
-                  opacity="0.28"
+                  x={b.x}
+                  y={b.y}
+                  width={BRICK_W}
+                  height={BRICK_H}
+                  rx={rx}
+                  fill={fills[b.shade]}
+                  stroke="#C9A24E"
+                  strokeOpacity="0.35"
+                  strokeWidth="0.6"
+                />
+                {/* Top bevel shine */}
+                <rect
+                  x={b.x + 1.5}
+                  y={b.y + 1.2}
+                  width={BRICK_W - 3}
+                  height={3.2}
+                  rx={1.2}
+                  fill="#FFFBEF"
+                  opacity="0.55"
+                />
+                {/* Left highlight / right shade overlay */}
+                <rect
+                  x={b.x}
+                  y={b.y}
+                  width={BRICK_W}
+                  height={BRICK_H}
+                  rx={rx}
+                  fill="url(#gm-brick-side)"
+                  opacity="0.85"
+                />
+                {/* Thin bottom edge for depth */}
+                <rect
+                  x={b.x + 1}
+                  y={b.y + BRICK_H - 2.2}
+                  width={BRICK_W - 2}
+                  height={1.4}
+                  rx={0.6}
+                  fill="#8B6914"
+                  opacity="0.18"
                 />
               </g>
             );
           })}
         </g>
 
-        {showFace && faceNugget && (
-          <g className="gm-face" style={{ opacity: Math.min(1, 0.45 + ratio * 0.55) }}>
-            <ellipse cx={faceCx - 5} cy={faceCy} rx="2.1" ry="2.5" fill="#8B6914" opacity="0.72" />
-            <ellipse cx={faceCx + 5} cy={faceCy} rx="2.1" ry="2.5" fill="#8B6914" opacity="0.72" />
-            <circle cx={faceCx - 4.4} cy={faceCy - 0.5} r="0.55" fill="#FFFBF0" opacity="0.9" />
-            <circle cx={faceCx + 5.6} cy={faceCy - 0.5} r="0.55" fill="#FFFBF0" opacity="0.9" />
-            <ellipse cx={faceCx - 9} cy={faceCy + 3.5} rx="2.6" ry="1.5" fill="#E8B86D" opacity="0.32" />
-            <ellipse cx={faceCx + 9} cy={faceCy + 3.5} rx="2.6" ry="1.5" fill="#E8B86D" opacity="0.32" />
+        {ratio > 0.45 && !over && (
+          <g className="gm-sparkles" style={{ opacity: Math.min(1, (ratio - 0.45) / 0.4) }}>
             <path
-              d={
-                ratio >= 0.5
-                  ? `M${faceCx - 5} ${faceCy + 6} Q${faceCx} ${faceCy + 9.5} ${faceCx + 5} ${faceCy + 6}`
-                  : `M${faceCx - 4} ${faceCy + 6.5} Q${faceCx} ${faceCy + 8} ${faceCx + 4} ${faceCy + 6.5}`
-              }
-              fill="none"
-              stroke="#8B6914"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.68"
-            />
-          </g>
-        )}
-
-        {over && (
-          <g className="gm-face" opacity="0.65">
-            <ellipse cx="52" cy="62" rx="2" ry="2.3" fill="#8B6914" />
-            <ellipse cx="66" cy="62" rx="2" ry="2.3" fill="#8B6914" />
-            <path
-              d="M54 68 Q59 66 64 68"
-              fill="none"
-              stroke="#8B6914"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-          </g>
-        )}
-
-        {sparkle && (
-          <g className="gm-sparkles" style={{ opacity: Math.min(1, (ratio - 0.35) / 0.4) }}>
-            <path
-              d="M22 30 l1.1 2.9 2.9 1.1 -2.9 1.1 -1.1 2.9 -1.1 -2.9 -2.9 -1.1 2.9 -1.1 Z"
+              d="M16 10 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 Z"
               fill="#FFF8E7"
             />
             <path
-              d="M96 36 l0.85 2.2 2.2 0.85 -2.2 0.85 -0.85 2.2 -0.85 -2.2 -2.2 -0.85 2.2 -0.85 Z"
+              d={`M${VIEW_W - 20} 12 l0.85 2.2 2.2 0.85 -2.2 0.85 -0.85 2.2 -0.85 -2.2 -2.2 -0.85 2.2 -0.85 Z`}
               fill="#F5E6C8"
             />
-            <circle cx="82" cy="28" r="1.4" fill="#FFFBF0" />
-          </g>
-        )}
-        {bigSparkle && (
-          <g className="gm-sparkles" style={{ opacity: (ratio - 0.7) / 0.3 }}>
-            <path
-              d="M60 6 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4 Z"
-              fill="#FFFBF0"
-            />
-            <circle cx="38" cy="16" r="1.3" fill="#F8EDD4" />
-            <circle cx="88" cy="14" r="1.1" fill="#FFF8E7" />
           </g>
         )}
       </svg>
       <div className="gold-mountain-caption">
-        <span className="gm-title">小金山</span>
+        <span className="gm-title">小金山 · 金砖</span>
         <span className="gm-remain">
-          {over ? `已掏空 · 超 ${formatRmb(-remaining)}` : `还剩 ${formatRmb(remaining)}`}
+          {over
+            ? `已掏空 · 超 ${formatRmb(-remaining)}`
+            : `还剩 ${formatRmb(remaining)} · ${visibleCount} 块`}
         </span>
       </div>
     </div>

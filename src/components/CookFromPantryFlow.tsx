@@ -126,7 +126,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
 
         <p className="sheet-section-label section-gap">当前可用食材</p>
         {available.length === 0 ? (
-          <p className="hint">冰箱空空的，先点上面「添加食材购置支出」～</p>
+          <p className="hint">冰箱空空的，请先添加食材购置支出</p>
         ) : (
           <ul className="pantry-pick-list">
             {available.map((p) => {

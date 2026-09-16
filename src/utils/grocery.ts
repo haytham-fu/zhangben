@@ -1,4 +1,10 @@
 import type { GroceryKind, PantryItem } from '../types';
+import {
+  estimateFromCapacity,
+  findProductProfile,
+  seasoningProfiles,
+  type CapUnit,
+} from './capacityEstimate';
 
 export interface GroceryKindOption {
   kind: GroceryKind;
@@ -6,7 +12,7 @@ export interface GroceryKindOption {
   icon: string;
 }
 
-/** 买菜品类芯片（可点选） */
+/** 买菜品类（可点选） */
 export const GROCERY_KIND_OPTIONS: GroceryKindOption[] = [
   { kind: 'veg', label: '蔬菜', icon: '🥬' },
   { kind: 'meat', label: '肉类', icon: '🥩' },
@@ -16,20 +22,12 @@ export const GROCERY_KIND_OPTIONS: GroceryKindOption[] = [
   { kind: 'seasoning', label: '调料', icon: '🧂' },
 ];
 
-/**
- * 调料建议顿数（估算，小瓶/小包装；可在代码中调常量）
- * 仅作参考，实际以用户填写为准。
- */
-export const SEASONING_MEAL_SUGGESTIONS: { name: string; meals: number }[] = [
-  { name: '食用油', meals: 60 },
-  { name: '生抽', meals: 40 },
-  { name: '老抽', meals: 50 },
-  { name: '盐', meals: 80 },
-  { name: '糖', meals: 50 },
-  { name: '香醋', meals: 40 },
-  { name: '蚝油', meals: 30 },
-  { name: '酱油', meals: 40 },
-];
+/** Quick chips: name only; meals come from capacity estimate */
+export const SEASONING_MEAL_SUGGESTIONS: { name: string; meals: number }[] =
+  seasoningProfiles().map((p) => ({
+    name: p.name,
+    meals: estimateFromCapacity(p, 1, '瓶')?.count ?? 30,
+  }));
 
 export function kindLabel(kind: GroceryKind): string {
   if (kind === 'custom') return '自定义';
@@ -41,13 +39,21 @@ export function kindIcon(kind: GroceryKind): string {
   return GROCERY_KIND_OPTIONS.find((k) => k.kind === kind)?.icon ?? '🛒';
 }
 
+/** Fallback when no capacity entered: 1 bottle conservative estimate */
 export function suggestMealsForSeasoning(name: string): number | null {
-  const n = name.trim();
-  if (!n) return null;
-  const hit = SEASONING_MEAL_SUGGESTIONS.find(
-    (s) => n === s.name || n.includes(s.name) || s.name.includes(n),
-  );
-  return hit?.meals ?? null;
+  const profile = findProductProfile(name);
+  if (!profile || profile.family !== 'seasoning') return null;
+  return estimateFromCapacity(profile, 1, '瓶')?.count ?? null;
+}
+
+export function estimateSeasoningMeals(
+  name: string,
+  amount: number,
+  unit: CapUnit,
+): number | null {
+  const profile = findProductProfile(name);
+  if (!profile || profile.family !== 'seasoning') return null;
+  return estimateFromCapacity(profile, amount, unit)?.count ?? null;
 }
 
 export function roundMoney(n: number): number {

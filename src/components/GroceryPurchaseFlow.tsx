@@ -1,19 +1,26 @@
 import { useMemo, useState } from 'react';
 import type { Store } from '../hooks/useStore';
 import type { GroceryKind, PaymentMethod } from '../types';
+import type { CapUnit } from '../utils/capacityEstimate';
+import {
+  defaultUnit,
+  estimateFromCapacity,
+  findProductProfile,
+  seasoningProfiles,
+} from '../utils/capacityEstimate';
 import { formatRmb } from '../utils/currency';
 import {
   GROCERY_KIND_OPTIONS,
-  SEASONING_MEAL_SUGGESTIONS,
   costPerMeal,
+  estimateSeasoningMeals,
   kindIcon,
   purchaseCostPerMeal,
   purchaseMaxMeals,
   purchaseTotalCost,
   roundMoney,
-  suggestMealsForSeasoning,
 } from '../utils/grocery';
 import { PAYMENT_LABEL } from '../utils/payment';
+import { CapacityEstimatePanel } from './CapacityEstimatePanel';
 import { IconPayment } from './CuteIcons';
 import { GlassCard } from './GlassCard';
 import { ModalPortal } from './ModalPortal';
@@ -24,6 +31,11 @@ interface DraftItem {
   name: string;
   costRaw: string;
   mealsRaw: string;
+  /** Seasoning capacity */
+  capacityRaw: string;
+  capacityUnit: CapUnit;
+  /** User manually edited meal count */
+  mealsManual: boolean;
 }
 
 interface Props {
@@ -36,6 +48,26 @@ let draftKey = 0;
 function nextKey() {
   draftKey += 1;
   return `g-${draftKey}`;
+}
+
+function emptyDraft(kind: GroceryKind, name: string): DraftItem {
+  const profile = kind === 'seasoning' ? findProductProfile(name) : null;
+  const unit = profile ? defaultUnit(profile) : '瓶';
+  let mealsRaw = '';
+  if (kind === 'seasoning' && profile) {
+    const est = estimateFromCapacity(profile, 1, unit);
+    if (est) mealsRaw = String(est.count);
+  }
+  return {
+    key: nextKey(),
+    kind,
+    name,
+    costRaw: '',
+    mealsRaw,
+    capacityRaw: kind === 'seasoning' ? '1' : '',
+    capacityUnit: unit,
+    mealsManual: false,
+  };
 }
 
 export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
@@ -55,18 +87,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
       name?.trim() ||
       GROCERY_KIND_OPTIONS.find((k) => k.kind === kind)?.label ||
       '食材';
-    const suggested =
-      kind === 'seasoning' ? suggestMealsForSeasoning(label) : null;
-    setItems((prev) => [
-      ...prev,
-      {
-        key: nextKey(),
-        kind,
-        name: label,
-        costRaw: '',
-        mealsRaw: suggested != null ? String(suggested) : '',
-      },
-    ]);
+    setItems((prev) => [...prev, emptyDraft(kind, label)]);
   }
 
   function addCustom() {
@@ -79,21 +100,26 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
     setCustomName('');
   }
 
-  function addSeasoning(name: string, meals: number) {
-    setItems((prev) => [
-      ...prev,
-      {
-        key: nextKey(),
-        kind: 'seasoning',
-        name,
-        costRaw: '',
-        mealsRaw: String(meals),
-      },
-    ]);
+  function addSeasoningNamed(name: string) {
+    setItems((prev) => [...prev, emptyDraft('seasoning', name)]);
   }
 
   function updateItem(key: string, patch: Partial<DraftItem>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+  }
+
+  function applySeasoningCapacity(key: string, capacityRaw: string, capacityUnit: CapUnit, name: string) {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.key !== key) return it;
+        const next = { ...it, capacityRaw, capacityUnit, name: name || it.name };
+        if (!it.mealsManual) {
+          const est = estimateSeasoningMeals(next.name, parseFloat(capacityRaw), capacityUnit);
+          if (est != null) next.mealsRaw = String(est);
+        }
+        return next;
+      }),
+    );
   }
 
   function removeItem(key: string) {
@@ -107,12 +133,20 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
       const gross = Number.isFinite(rawCost) && rawCost > 0 ? rawCost : 0;
       const costRmb = aaHalf ? roundMoney(gross / 2) : roundMoney(gross);
       const meals = Number.isFinite(rawMeals) && rawMeals > 0 ? rawMeals : 0;
+      const profile = it.kind === 'seasoning' ? findProductProfile(it.name) : null;
+      const capAmt = parseFloat(it.capacityRaw);
+      const liveEst =
+        profile && Number.isFinite(capAmt) && capAmt > 0
+          ? estimateFromCapacity(profile, capAmt, it.capacityUnit)
+          : null;
       return {
         ...it,
         gross,
         costRmb,
         meals,
         perMeal: meals > 0 ? costPerMeal(costRmb, meals) : 0,
+        liveEst,
+        profile,
       };
     });
   }, [items, aaHalf]);
@@ -121,8 +155,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   const totalCost = purchaseTotalCost(validItems);
   const perMealSum = purchaseCostPerMeal(validItems);
   const maxMeals = purchaseMaxMeals(validItems);
-  const totalOverMax =
-    maxMeals > 0 ? roundMoney(totalCost / maxMeals) : 0;
+  const totalOverMax = maxMeals > 0 ? roundMoney(totalCost / maxMeals) : 0;
 
   function goPayment() {
     if (validItems.length === 0) {
@@ -161,6 +194,8 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
     });
     onDone();
   }
+
+  const seasoningList = seasoningProfiles();
 
   return (
     <>
@@ -230,25 +265,25 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               </button>
             </div>
 
-            <p className="sheet-section-label section-gap">调料建议顿数（估算）</p>
+            <p className="sheet-section-label section-gap">常用调料</p>
             <p className="hint" style={{ marginTop: -4 }}>
-              按小瓶/小包装粗估，仅供参考，可改。
+              点选后填写容量，自动估算可吃顿数（可改）
             </p>
             <div className="chip-row grocery-kind-row">
-              {SEASONING_MEAL_SUGGESTIONS.map((s) => (
+              {seasoningList.map((s) => (
                 <button
-                  key={s.name}
+                  key={s.id}
                   type="button"
                   className="chip chip-sm"
-                  onClick={() => addSeasoning(s.name, s.meals)}
+                  onClick={() => addSeasoningNamed(s.name)}
                 >
-                  {s.name}·约{s.meals}顿
+                  {s.name}
                 </button>
               ))}
             </div>
 
             {items.length === 0 ? (
-              <p className="hint section-gap">还没加点菜，先点上面的芯片～</p>
+              <p className="hint section-gap">点选上方品类添加</p>
             ) : (
               <ul className="grocery-draft-list section-gap">
                 {parsed.map((it) => (
@@ -265,22 +300,40 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                         删除
                       </button>
                     </div>
-                    {it.kind === 'custom' || it.kind === 'seasoning' ? (
+                    {(it.kind === 'custom' || it.kind === 'seasoning') && (
                       <div className="field">
                         <label>品名</label>
                         <input
                           value={it.name}
                           onChange={(e) => {
                             const name = e.target.value;
-                            updateItem(it.key, { name });
-                            if (it.kind === 'seasoning' && !it.mealsRaw) {
-                              const sug = suggestMealsForSeasoning(name);
-                              if (sug != null) updateItem(it.key, { name, mealsRaw: String(sug) });
+                            if (it.kind === 'seasoning') {
+                              applySeasoningCapacity(it.key, it.capacityRaw, it.capacityUnit, name);
+                            } else {
+                              updateItem(it.key, { name });
                             }
                           }}
                         />
                       </div>
-                    ) : null}
+                    )}
+
+                    {it.kind === 'seasoning' && (
+                      <CapacityEstimatePanel
+                        profile={it.profile}
+                        capacityRaw={it.capacityRaw}
+                        capacityUnit={it.capacityUnit}
+                        onCapacityChange={(raw, unit) =>
+                          applySeasoningCapacity(it.key, raw, unit, it.name)
+                        }
+                        profiles={seasoningList}
+                        selectedName={it.profile?.name}
+                        onSelectProfile={(p) => {
+                          applySeasoningCapacity(it.key, it.capacityRaw || '1', defaultUnit(p), p.name);
+                        }}
+                        footerHint="可在下方手动改顿数"
+                      />
+                    )}
+
                     <div className="row-2">
                       <div className="field">
                         <label>{aaHalf ? '购入总额（对半前）' : '我实际出的钱'}</label>
@@ -297,7 +350,9 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                           inputMode="decimal"
                           placeholder="顿"
                           value={it.mealsRaw}
-                          onChange={(e) => updateItem(it.key, { mealsRaw: e.target.value })}
+                          onChange={(e) =>
+                            updateItem(it.key, { mealsRaw: e.target.value, mealsManual: true })
+                          }
                         />
                       </div>
                     </div>
@@ -312,9 +367,9 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                         每顿约 {formatRmb(it.perMeal)}
                       </p>
                     )}
-                    {it.kind === 'seasoning' && (
-                      <p className="hint" style={{ marginTop: 0 }}>
-                        调料顿数为估算，可按瓶身自行调整
+                    {it.kind === 'seasoning' && it.liveEst && (
+                      <p className="capacity-estimate-line" style={{ marginTop: 4 }}>
+                        {it.liveEst.label}
                       </p>
                     )}
                   </li>
