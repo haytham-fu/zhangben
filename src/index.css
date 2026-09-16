@@ -15,7 +15,7 @@
   --orangered: #c9845a;
   --red-500: #e07a6a;
   --red-600: #c45c4e;
-  /* Soft gold accents (小金山 / cohesive with blue glass) */
+  /* Soft gold accents (progress near/over + cohesive with blue glass) */
   --gold-50: #fffbf0;
   --gold-100: #f5e6c8;
   --gold-200: #e8d4a8;
@@ -1781,150 +1781,32 @@ a {
   color: var(--blue-800);
 }
 
-/* —— 小金山（soft champagne 金砖，液态玻璃风） —— */
-.gold-mountain {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+/* —— 本月预算顶部进度（对齐「今日」卡片布局） —— */
+.month-budget-hero {
   margin: 0 0 14px;
   padding: 10px 12px 12px;
   border-radius: var(--radius-soft);
   background: linear-gradient(
     160deg,
-    rgba(255, 252, 245, 0.55) 0%,
+    rgba(255, 255, 255, 0.5) 0%,
     rgba(255, 255, 255, 0.28) 45%,
     rgba(219, 234, 254, 0.22) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    0 1px 8px rgba(184, 149, 90, 0.06);
+    0 1px 8px rgba(37, 99, 235, 0.05);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
-  transition:
-    background var(--dur-med) var(--ease-soft),
-    border-color var(--dur-med) ease,
-    box-shadow var(--dur-med) ease,
-    opacity var(--dur-med) ease;
 }
 
-.gold-mountain--low,
-.gold-mountain--empty {
-  background: linear-gradient(
-    160deg,
-    rgba(248, 250, 252, 0.5) 0%,
-    rgba(219, 234, 254, 0.22) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 1px 6px rgba(37, 99, 235, 0.04);
+.month-budget-hero .progress-wrap:last-of-type {
+  margin-bottom: 0;
 }
 
-.gold-mountain--over {
-  background: linear-gradient(
-    160deg,
-    rgba(254, 247, 245, 0.45) 0%,
-    rgba(219, 234, 254, 0.2) 100%
-  );
-  border-color: rgba(255, 255, 255, 0.55);
+.month-budget-hero .stat-grid {
+  margin-top: 4px;
 }
-
-.gold-mountain-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.gm-heap {
-  transition:
-    transform 0.45s var(--ease-out),
-    opacity 0.4s var(--ease-soft);
-}
-
-.gm-brick,
-.gm-nugget {
-  opacity: 0;
-  transition:
-    opacity 0.32s var(--ease-soft),
-    transform 0.36s var(--ease-out);
-}
-
-.gm-brick--on,
-.gm-nugget--on {
-  opacity: 1;
-}
-
-.gm-shine,
-.gm-sparkles,
-.gm-flag,
-.gm-face {
-  transition: opacity 0.4s var(--ease-soft);
-}
-
-/* Soft stack nudge when remaining amount changes */
-.gold-mountain--bump .gold-mountain-svg {
-  animation: gm-stack-bounce 0.5s var(--ease-out);
-}
-
-.gold-mountain--bump .gm-heap {
-  animation: gm-heap-jiggle 0.5s var(--ease-out);
-}
-
-.gold-mountain--bump .gm-brick--on,
-.gold-mountain--bump .gm-nugget--on {
-  animation: gm-nugget-pop 0.45s var(--ease-out);
-}
-
-@keyframes gm-stack-bounce {
-  0% { transform: scale(1) translateY(0); }
-  30% { transform: scale(1.03) translateY(-3px); }
-  55% { transform: scale(0.985) translateY(1px); }
-  100% { transform: scale(1) translateY(0); }
-}
-
-@keyframes gm-heap-jiggle {
-  0% { transform: translateY(0) scale(1); }
-  35% { transform: translateY(-2px) scale(1.02); }
-  100% { transform: translateY(0) scale(1); }
-}
-
-@keyframes gm-nugget-pop {
-  0% { transform: translateY(0) scale(1); }
-  40% { transform: translateY(-2px) scale(1.04); }
-  100% { transform: translateY(0) scale(1); }
-}
-
-.gold-mountain-caption {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.gm-title {
-  font-size: 0.76rem;
-  font-weight: 650;
-  color: var(--gold-500);
-  letter-spacing: 0.03em;
-}
-
-.gold-mountain--empty .gm-title,
-.gold-mountain--over .gm-title {
-  color: var(--text-muted);
-}
-
-.gm-remain {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.gold-mountain--full .gm-remain {
-  color: var(--gold-500);
-}
-
 
 /* —— Theme palettes (soft, glass-friendly) —— */
 html[data-palette="sky"] {
@@ -2385,17 +2267,6 @@ html[data-palette="lilac"] {
   html[data-bg-motion="dynamic"] body::after,
   html[data-bg-motion="dynamic"] #root::before {
     animation: none !important;
-  }
-  .gold-mountain--bump .gold-mountain-svg,
-  .gold-mountain--bump .gm-heap,
-  .gold-mountain--bump .gm-brick--on,
-  .gold-mountain--bump .gm-nugget--on {
-    animation: none !important;
-  }
-  .gm-heap,
-  .gm-brick,
-  .gm-nugget {
-    transition: none !important;
   }
 }
 

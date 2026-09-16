@@ -1,7 +1,6 @@
 import { format } from 'date-fns';
 import { AdviceFlowCard } from '../components/AdviceFlowCard';
 import { EmptyState } from '../components/EmptyState';
-import { GoldMountain } from '../components/GoldMountain';
 import { IconEmptyLedger, IconEmptySpend } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { ProgressBar } from '../components/ProgressBar';
@@ -121,8 +120,38 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
       </GlassCard>
 
       <GlassCard title={planOn ? '本月预算' : '本月汇总'}>
-        {settings.showGoldMountain !== false && (
-          <GoldMountain remaining={totalBudget - totalUsed} budget={totalBudget} />
+        {settings.showMonthlyBudgetProgress !== false && (
+          <div className="month-budget-hero">
+            <ProgressBar
+              label="本月合计 vs 预算"
+              used={Math.max(0, totalUsed)}
+              budget={totalBudget}
+              status={budgetStatus(totalUsed, totalBudget)}
+              extra={
+                totalUsed < 0
+                  ? `含收入抵扣后净额 ${formatRmb(totalUsed)}`
+                  : undefined
+              }
+            />
+            <div className="stat-grid section-gap">
+              <div className="stat-pill">
+                <div className="k">本月已用</div>
+                <div className="v">{formatRmb(totalUsed)}</div>
+              </div>
+              <div className="stat-pill">
+                <div className="k">本月剩余</div>
+                <div
+                  className="v"
+                  style={{
+                    color:
+                      totalBudget - totalUsed < 0 ? 'var(--red-500)' : undefined,
+                  }}
+                >
+                  {formatRmb(totalBudget - totalUsed)}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
         {planOn ? (
           <>
@@ -138,12 +167,14 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
               budget={settings.specialBudget}
               status={budgetStatus(specialUsed, settings.specialBudget)}
             />
-            <ProgressBar
-              label={`合计 ${totalBudget}`}
-              used={totalUsed}
-              budget={totalBudget}
-              status={budgetStatus(totalUsed, totalBudget)}
-            />
+            {settings.showMonthlyBudgetProgress === false && (
+              <ProgressBar
+                label={`合计 ${totalBudget}`}
+                used={totalUsed}
+                budget={totalBudget}
+                status={budgetStatus(totalUsed, totalBudget)}
+              />
+            )}
             <div className="toggle-row section-gap">
               <span style={{ fontSize: '0.85rem' }}>建议含特例（请客）</span>
               <button

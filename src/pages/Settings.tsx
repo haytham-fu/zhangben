@@ -165,17 +165,19 @@ export function SettingsPage({ store }: Props) {
 
         <div className="toggle-row">
           <div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>显示小金山</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>显示本月预算进度</div>
             <p className="hint" style={{ margin: '4px 0 0' }}>
-              总览「本月预算」上方用软金色小山表示剩余预算；关闭后仅保留进度条
+              总览「本月预算」顶部显示合计进度条与已用/剩余；关闭后仅保留下方分项进度
             </p>
           </div>
           <button
             type="button"
-            className={`toggle ${settings.showGoldMountain !== false ? 'on' : ''}`}
-            aria-label="显示小金山"
+            className={`toggle ${settings.showMonthlyBudgetProgress !== false ? 'on' : ''}`}
+            aria-label="显示本月预算进度"
             onClick={() =>
-              updateSettings({ showGoldMountain: !(settings.showGoldMountain !== false) })
+              updateSettings({
+                showMonthlyBudgetProgress: !(settings.showMonthlyBudgetProgress !== false),
+              })
             }
           />
         </div>

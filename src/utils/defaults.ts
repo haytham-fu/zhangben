@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   liveRatesUpdatedAt: null,
   preferredCurrencies: [...DEFAULT_PREFERRED_CURRENCIES],
   themeColor: '#3b82f6',
-  showGoldMountain: true,
+  showMonthlyBudgetProgress: true,
   themePalette: 'sky',
   bgMotion: 'dynamic',
   settledMonths: [],

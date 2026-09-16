@@ -178,8 +178,8 @@ export interface Settings {
    */
   preferredCurrencies: Currency[];
   themeColor: string;
-  /** Dashboard 小金山 illustration for remaining budget */
-  showGoldMountain: boolean;
+  /** Dashboard top monthly budget progress (used / remain + ProgressBar) */
+  showMonthlyBudgetProgress: boolean;
   /** Soft color palette for glass UI */
   themePalette: ThemePalette;
   /** Static vs flowing animated page background */

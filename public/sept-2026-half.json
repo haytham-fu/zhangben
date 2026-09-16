@@ -21,7 +21,7 @@
     ],
     "dailyPlanCompareEnabled": true,
     "includeSpecialInAdvice": true,
-    "showGoldMountain": true,
+    "showMonthlyBudgetProgress": true,
     "themePalette": "sky",
     "bgMotion": "dynamic",
     "defaultSatMode": "play",

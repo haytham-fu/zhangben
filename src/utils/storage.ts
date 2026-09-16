@@ -111,6 +111,8 @@ export function normalizeSettings(raw: unknown): Settings {
     usdRate?: number;
     liveHkdRate?: number | null;
     liveUsdRate?: number | null;
+    /** @deprecated migrated to showMonthlyBudgetProgress */
+    showGoldMountain?: boolean;
   };
 
   const fixedRates: Record<ForeignCurrency, number> = { ...DEFAULT_FIXED_RATES };
@@ -150,15 +152,25 @@ export function normalizeSettings(raw: unknown): Settings {
     preferredCurrencies: _pc,
     musicMembershipHkd: _mmh,
     musicMembershipEnabled: _mme,
+    showGoldMountain: _sgm,
+    showMonthlyBudgetProgress: _smbp,
     ...rest
   } = partial as typeof partial & {
     musicMembershipHkd?: number;
     musicMembershipEnabled?: boolean;
   };
 
+  const showMonthlyBudgetProgress =
+    typeof partial.showMonthlyBudgetProgress === 'boolean'
+      ? partial.showMonthlyBudgetProgress
+      : typeof partial.showGoldMountain === 'boolean'
+        ? partial.showGoldMountain
+        : DEFAULT_SETTINGS.showMonthlyBudgetProgress;
+
   return {
     ...DEFAULT_SETTINGS,
     ...rest,
+    showMonthlyBudgetProgress,
     fixedRates,
     liveRates,
     liveRatesUpdatedAt:
