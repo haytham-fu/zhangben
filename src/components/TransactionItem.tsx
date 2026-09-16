@@ -1,14 +1,15 @@
-import type { Category, Transaction } from '../types';
+import type { Category, Transaction, Wallet } from '../types';
 import { formatMoney, formatRmb } from '../utils/currency';
 import { PAYMENT_LABEL, paymentBadgeClass } from '../utils/payment';
 
 interface Props {
   tx: Transaction;
   category?: Category;
+  wallet?: Wallet;
   onClick?: () => void;
 }
 
-export function TransactionItem({ tx, category, onClick }: Props) {
+export function TransactionItem({ tx, category, wallet, onClick }: Props) {
   const isTopup = tx.kind === 'topup';
   const amountClass = isTopup ? 'topup' : tx.type === 'income' ? 'income' : 'expense';
   const sign = isTopup ? '' : tx.type === 'income' ? '+' : '-';
@@ -26,6 +27,11 @@ export function TransactionItem({ tx, category, onClick }: Props) {
             {isTopup && <span className="badge badge-topup">充值·不计支出</span>}
             {payLabel && !isTopup && (
               <span className={`badge ${paymentBadgeClass(tx.paymentMethod)}`}>{payLabel}</span>
+            )}
+            {wallet && (
+              <span className="badge badge-wallet" style={{ ['--wallet-color' as string]: wallet.color }}>
+                {wallet.name}
+              </span>
             )}
           </div>
           <div className="meta">

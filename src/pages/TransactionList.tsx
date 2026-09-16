@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function TransactionList({ store }: Props) {
-  const { transactions, categoryMap, categories, currentYm, deleteTransaction } = store;
+  const { transactions, categoryMap, walletMap, categories, currentYm, deleteTransaction } = store;
   const [ym, setYm] = useState(currentYm);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'topup'>('all');
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
@@ -102,6 +102,7 @@ export function TransactionList({ store }: Props) {
                 key={tx.id}
                 tx={tx}
                 category={categoryMap.get(tx.categoryId)}
+                wallet={tx.walletId ? walletMap.get(tx.walletId) : undefined}
                 onClick={() => setSelected(tx)}
               />
             ))}

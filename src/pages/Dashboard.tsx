@@ -26,7 +26,7 @@ interface Props {
 }
 
 export function Dashboard({ store, onAdd, onOpenTx }: Props) {
-  const { settings, transactions, categoryMap, todayStr, currentYm, setSatModeForDate } = store;
+  const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const monthTxs = filterMonth(transactions, currentYm);
@@ -204,6 +204,7 @@ export function Dashboard({ store, onAdd, onOpenTx }: Props) {
                 key={tx.id}
                 tx={tx}
                 category={categoryMap.get(tx.categoryId)}
+                wallet={tx.walletId ? walletMap.get(tx.walletId) : undefined}
                 onClick={() => onOpenTx(tx.id)}
               />
             ))}

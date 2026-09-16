@@ -1,4 +1,4 @@
-import type { Category, Settings } from '../types';
+import type { Category, Settings, Wallet } from '../types';
 
 export const DEFAULT_SETTINGS: Settings = {
   basicBudget: 3500,
@@ -48,3 +48,6 @@ export const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 export const STORAGE_KEY = 'zhangben-v1';
+
+/** Start empty — user creates cute 小荷包 under 基础 / 专项 */
+export const DEFAULT_WALLETS: Wallet[] = [];

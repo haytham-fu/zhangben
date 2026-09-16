@@ -7,6 +7,7 @@ import { CalendarPage } from './pages/Calendar';
 import { Dashboard } from './pages/Dashboard';
 import { SettingsPage } from './pages/Settings';
 import { TransactionList } from './pages/TransactionList';
+import { WalletsPage } from './pages/Wallets';
 
 export default function App() {
   const store = useStore();
@@ -36,6 +37,7 @@ export default function App() {
         )}
         {tab === 'calendar' && <CalendarPage store={store} />}
         {tab === 'add' && <AddTransaction store={store} onDone={() => setTab('home')} />}
+        {tab === 'wallets' && <WalletsPage store={store} />}
         {tab === 'list' && <TransactionList store={store} />}
         {tab === 'settings' && <SettingsPage store={store} />}
       </div>

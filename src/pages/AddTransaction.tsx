@@ -18,7 +18,7 @@ type Mode = 'hub' | 'wizard' | 'ocr' | 'income' | 'topup' | 'batch';
 type WizardStep = 'category' | 'payment' | 'details';
 
 export function AddTransaction({ store, onDone }: Props) {
-  const { categories, settings, todayStr, addTransaction, updateSettings } = store;
+  const { categories, wallets, settings, todayStr, addTransaction, updateSettings } = store;
   const [mode, setMode] = useState<Mode>('hub');
   const [wizardStep, setWizardStep] = useState<WizardStep>('category');
   const [type, setType] = useState<TxType>('expense');
@@ -30,6 +30,7 @@ export function AddTransaction({ store, onDone }: Props) {
   const [note, setNote] = useState('');
   const [isSpecial, setIsSpecial] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('other');
+  const [walletId, setWalletId] = useState<string | null>(null);
   const [batchText, setBatchText] = useState('');
   const [rateNote, setRateNote] = useState('');
   const [resolvedRate, setResolvedRate] = useState(1);
@@ -99,6 +100,7 @@ export function AddTransaction({ store, onDone }: Props) {
     setDate(todayStr);
     setCurrency('RMB');
     setPaymentMethod('other');
+    setWalletId(null);
   }
 
   function startExpenseWizard() {
@@ -113,6 +115,7 @@ export function AddTransaction({ store, onDone }: Props) {
     setNote('');
     setIsSpecial(false);
     setDate(todayStr);
+    setWalletId(null);
   }
 
   async function submitSingle() {
@@ -147,6 +150,7 @@ export function AddTransaction({ store, onDone }: Props) {
       isSpecial: kind === 'topup' ? false : isSpecial,
       paymentMethod: pay,
       rate: resolved.rate,
+      walletId: kind === 'topup' || type === 'income' ? null : walletId,
     });
     resetForm();
     onDone();
@@ -357,6 +361,35 @@ export function AddTransaction({ store, onDone }: Props) {
                 <label>备注</label>
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />
               </div>
+              <div className="field">
+                <label>小荷包（可选）</label>
+                <div className="chip-row wallet-pick-row">
+                  <button
+                    type="button"
+                    className={`chip ${walletId == null ? 'active' : ''}`}
+                    onClick={() => setWalletId(null)}
+                  >
+                    不指定
+                  </button>
+                  {wallets
+                    .filter((w) => w.bucket === bucket)
+                    .map((w) => (
+                      <button
+                        key={w.id}
+                        type="button"
+                        className={`chip chip-with-icon ${walletId === w.id ? 'active' : ''}`}
+                        onClick={() => setWalletId(w.id)}
+                      >
+                        <span className="wallet-chip-dot" style={{ background: w.color }} aria-hidden />
+                        {w.name}
+                      </button>
+                    ))}
+                </div>
+                {wallets.filter((w) => w.bucket === bucket).length === 0 && (
+                  <p className="hint">该预算桶暂无小荷包，可在「小荷包」页新建</p>
+                )}
+              </div>
+
               <button type="button" className="btn btn-primary btn-block" onClick={submitSingle}>
                 保存
               </button>
@@ -394,6 +427,7 @@ export function AddTransaction({ store, onDone }: Props) {
                       className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
                       onClick={() => {
                         setCategoryId(c.id);
+                        setWalletId(null);
                         setWizardStep('payment');
                       }}
                     >
@@ -413,6 +447,7 @@ export function AddTransaction({ store, onDone }: Props) {
                       className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
                       onClick={() => {
                         setCategoryId(c.id);
+                        setWalletId(null);
                         setWizardStep('payment');
                       }}
                     >

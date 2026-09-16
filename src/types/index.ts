@@ -30,6 +30,16 @@ export interface Category {
   allowPayment?: boolean;
 }
 
+export interface Wallet {
+  id: string;
+  name: string;
+  color: string;
+  bucket: Bucket;
+  /** RMB allocated from the bucket budget */
+  allocated: number;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   type: TxType;
@@ -44,6 +54,8 @@ export interface Transaction {
   note: string;
   isSpecial: boolean; // 请客 etc.
   paymentMethod: PaymentMethod;
+  /** Optional 小荷包 link */
+  walletId?: string | null;
   createdAt: string;
 }
 
@@ -85,4 +97,5 @@ export interface AppState {
   settings: Settings;
   transactions: Transaction[];
   categories: Category[];
+  wallets: Wallet[];
 }

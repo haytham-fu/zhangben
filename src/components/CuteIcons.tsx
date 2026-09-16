@@ -145,6 +145,33 @@ export function IconEmptyDay({ size = 56 }: IconProps) {
   );
 }
 
+
+export function IconWallet({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="24" cy="24" r="20" fill="#FBCFE8" />
+      <rect x="11" y="16" width="26" height="18" rx="5" fill="#EC4899" />
+      <rect x="11" y="16" width="26" height="7" rx="5" fill="#F472B6" />
+      <circle cx="31" cy="28" r="3.5" fill="#FDE68A" />
+      <path d="M14 22h8" stroke="#FCE7F3" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="36" cy="14" r="4" fill="#60A5FA" />
+    </Svg>
+  );
+}
+
+export function IconEmptyWallet({ size = 56 }: IconProps) {
+  return (
+    <Svg size={size}>
+      <ellipse cx="24" cy="40" rx="13" ry="2.5" fill="#FBCFE8" opacity="0.75" />
+      <rect x="10" y="14" width="28" height="20" rx="5" fill="#F472B6" />
+      <rect x="10" y="14" width="28" height="8" rx="5" fill="#EC4899" />
+      <circle cx="32" cy="28" r="4" fill="#FDE68A" />
+      <circle cx="36" cy="12" r="5" fill="#93C5FD" />
+      <path d="M36 9.5v5M33.5 12h5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconEdit({ size = 22 }: IconProps) {
   return (
     <Svg size={size}>
@@ -226,7 +253,7 @@ export function IconPayment({ method, size = 18 }: { method: PaymentMethod; size
   );
 }
 
-export type NavIconId = 'home' | 'calendar' | 'add' | 'list' | 'settings';
+export type NavIconId = 'home' | 'calendar' | 'add' | 'wallets' | 'list' | 'settings';
 
 export function NavCuteIcon({ id, size = 26 }: { id: NavIconId; size?: number }) {
   switch (id) {
@@ -236,6 +263,8 @@ export function NavCuteIcon({ id, size = 26 }: { id: NavIconId; size?: number })
       return <IconCalendar size={size} />;
     case 'add':
       return <IconAdd size={size} />;
+    case 'wallets':
+      return <IconWallet size={size} />;
     case 'list':
       return <IconList size={size} />;
     case 'settings':

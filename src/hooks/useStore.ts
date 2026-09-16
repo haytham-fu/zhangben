@@ -11,10 +11,12 @@ import type {
   TxType,
   PaymentMethod,
   Bucket,
+  Wallet,
 } from '../types';
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
 import { loadState, saveState } from '../utils/storage';
 import { monthKey } from '../utils/budget';
+import { createWallet } from '../utils/wallets';
 
 export interface AddTxInput {
   type: TxType;
@@ -29,6 +31,7 @@ export interface AddTxInput {
   paymentMethod?: PaymentMethod;
   /** Override conversion rate (e.g. live FX); otherwise settings rate */
   rate?: number;
+  walletId?: string | null;
 }
 
 export function useStore() {
@@ -73,6 +76,7 @@ export function useStore() {
         note: input.note ?? '',
         isSpecial: input.isSpecial ?? false,
         paymentMethod: input.paymentMethod ?? 'none',
+        walletId: input.walletId ?? null,
         createdAt: new Date().toISOString(),
       };
       return { ...s, transactions: [tx, ...s.transactions] };
@@ -104,6 +108,40 @@ export function useStore() {
     }));
   }, []);
 
+  const addWallet = useCallback((bucket: Bucket, allocated = 0) => {
+    setState((s) => {
+      const wallet = createWallet(bucket, s.wallets, allocated);
+      return { ...s, wallets: [...s.wallets, wallet] };
+    });
+  }, []);
+
+  const updateWallet = useCallback((id: string, patch: Partial<Pick<Wallet, 'name' | 'color' | 'allocated'>>) => {
+    setState((s) => ({
+      ...s,
+      wallets: s.wallets.map((w) => {
+        if (w.id !== id) return w;
+        const next = { ...w, ...patch };
+        if (patch.allocated != null) {
+          next.allocated = Math.max(0, Math.round(patch.allocated * 100) / 100);
+        }
+        if (patch.name != null) {
+          next.name = patch.name.trim() || w.name;
+        }
+        return next;
+      }),
+    }));
+  }, []);
+
+  const removeWallet = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      wallets: s.wallets.filter((w) => w.id !== id),
+      transactions: s.transactions.map((t) =>
+        t.walletId === id ? { ...t, walletId: null } : t,
+      ),
+    }));
+  }, []);
+
   const ensureMusicMembership = useCallback((ym?: string) => {
     setState((s) => {
       if (!s.settings.musicMembershipEnabled) return s;
@@ -132,6 +170,7 @@ export function useStore() {
         note: '音乐会员自动·月初',
         isSpecial: false,
         paymentMethod: 'none',
+        walletId: null,
         createdAt: new Date().toISOString(),
       };
       return { ...s, transactions: [tx, ...s.transactions] };
@@ -153,12 +192,19 @@ export function useStore() {
     return m;
   }, [state.categories]);
 
+  const walletMap = useMemo(() => {
+    const m = new Map(state.wallets.map((w) => [w.id, w]));
+    return m;
+  }, [state.wallets]);
+
   return {
     state,
     settings: state.settings,
     transactions: state.transactions,
     categories: state.categories,
+    wallets: state.wallets,
     categoryMap,
+    walletMap,
     todayStr,
     currentYm,
     updateSettings,
@@ -166,6 +212,9 @@ export function useStore() {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    addWallet,
+    updateWallet,
+    removeWallet,
     ensureMusicMembership,
     replaceState,
     resetAll,

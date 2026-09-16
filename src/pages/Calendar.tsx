@@ -46,7 +46,7 @@ function statusClass(s: BudgetStatus): string {
 }
 
 export function CalendarPage({ store }: Props) {
-  const { settings, transactions, categoryMap, todayStr, setSatModeForDate } = store;
+  const { settings, transactions, categoryMap, walletMap, todayStr, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const today = parseISO(todayStr);
@@ -280,6 +280,7 @@ export function CalendarPage({ store }: Props) {
                   key={tx.id}
                   tx={tx}
                   category={categoryMap.get(tx.categoryId)}
+                  wallet={tx.walletId ? walletMap.get(tx.walletId) : undefined}
                 />
               ))}
             </ul>
