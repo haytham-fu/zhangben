@@ -24,6 +24,12 @@
   --radius-soft: 20px;
   --radius-card: 24px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Motion tokens — 200–350ms, ease-out curves */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --dur-fast: 180ms;
+  --dur-med: 260ms;
+  --dur-slow: 320ms;
   font-family: "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", "Microsoft YaHei",
     system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -104,15 +110,110 @@ a {
   color: var(--text-muted);
 }
 
-/* Glass card */
+/* ---------- Keyframes (transform/opacity only) ---------- */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glass-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tab / page content enter */
+.page-view {
+  animation: page-enter var(--dur-med) var(--ease-out) both;
+}
+
+/* Glass card — tuned blur to cut re-paints; enter + light press */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  /* Slightly lighter blur than 18px — same frosted look, cheaper on mobile */
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   box-shadow: var(--glass-shadow);
   padding: 16px;
+  transition: transform var(--dur-fast) var(--ease-soft), box-shadow var(--dur-med) var(--ease-soft);
+}
+
+.page-view .glass {
+  animation: glass-enter var(--dur-slow) var(--ease-out) both;
+}
+
+.page-view .glass:nth-of-type(1) {
+  animation-delay: 20ms;
+}
+.page-view .glass:nth-of-type(2) {
+  animation-delay: 55ms;
+}
+.page-view .glass:nth-of-type(3) {
+  animation-delay: 90ms;
+}
+.page-view .glass:nth-of-type(4) {
+  animation-delay: 120ms;
+}
+.page-view .glass:nth-of-type(5) {
+  animation-delay: 145ms;
+}
+.page-view .glass:nth-of-type(n + 6) {
+  animation-delay: 160ms;
+}
+
+.glass:active {
+  transform: scale(0.992);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.1);
+}
+
+/* Avoid nested scale when pressing controls inside the card */
+.glass:has(button:active, a:active, input:active, select:active, textarea:active) {
+  transform: none;
+  box-shadow: var(--glass-shadow);
 }
 
 .glass + .glass {
@@ -126,7 +227,14 @@ a {
   color: var(--blue-800);
 }
 
-/* Buttons — all pill / soft rounded */
+.glass-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Buttons — pill press / hover; transform+opacity only */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -137,13 +245,18 @@ a {
   border-radius: var(--radius-pill);
   font-weight: 600;
   font-size: 0.95rem;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-med) var(--ease-soft),
+    opacity var(--dur-fast) ease,
+    filter var(--dur-fast) ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: manipulation;
 }
 
-.btn:active {
-  transform: scale(0.97);
+.btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .btn:disabled {
@@ -159,7 +272,8 @@ a {
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(147, 197, 253, 0.8);
   color: var(--blue-700);
 }
@@ -195,6 +309,49 @@ a {
   border: 1px solid rgba(191, 219, 254, 0.9);
   color: var(--blue-700);
   font-size: 1.15rem;
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    background var(--dur-fast) ease,
+    box-shadow var(--dur-med) var(--ease-soft);
+}
+
+.btn-icon:active {
+  transform: scale(0.92);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.42);
+    filter: brightness(1.03);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: scale(0.96) translateY(0);
+    filter: none;
+  }
+  .btn-secondary:hover:not(:disabled),
+  .btn-ghost:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+  }
+  .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  }
+  .chip:hover:not(.active) {
+    border-color: var(--blue-300);
+    color: var(--blue-700);
+  }
+  .nav-item:hover:not(.active) {
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--blue-600);
+  }
+  .tx-item:hover {
+    background: rgba(255, 255, 255, 0.65);
+  }
+  .cat-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.7);
+  }
 }
 
 .chip {
@@ -210,7 +367,18 @@ a {
   background: rgba(255, 255, 255, 0.55);
   border: 1.5px solid rgba(191, 219, 254, 0.9);
   color: var(--text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    box-shadow var(--dur-med) var(--ease-soft);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.chip:active {
+  transform: scale(0.95);
 }
 
 .chip.active {
@@ -248,9 +416,10 @@ a {
   border-radius: var(--radius-soft);
   border: 1.5px solid rgba(147, 197, 253, 0.7);
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
 .field textarea {
@@ -271,7 +440,7 @@ a {
   gap: 10px;
 }
 
-/* Progress bars */
+/* Progress bars — scaleX (compositor) instead of width */
 .progress-wrap {
   margin: 8px 0 4px;
 }
@@ -305,9 +474,15 @@ a {
 
 .progress-fill {
   height: 100%;
+  width: 100%;
   border-radius: var(--radius-pill);
-  transition: width 0.35s ease, background 0.25s ease;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    background var(--dur-med) ease;
   min-width: 0;
+  backface-visibility: hidden;
 }
 
 .progress-fill.status-safe {
@@ -330,6 +505,7 @@ a {
   border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 700;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .status-tag.safe {
@@ -361,8 +537,8 @@ a {
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-top: 1px solid rgba(255, 255, 255, 0.8);
   z-index: 50;
 }
@@ -379,12 +555,22 @@ a {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    background var(--dur-med) var(--ease-soft),
+    color var(--dur-med) ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.nav-item:active {
+  transform: scale(0.94);
 }
 
 .nav-item .nav-icon {
   font-size: 1.25rem;
   line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-soft);
 }
 
 .nav-item.active {
@@ -392,7 +578,11 @@ a {
   color: var(--blue-700);
 }
 
-/* Lists */
+.nav-item.active .nav-icon {
+  transform: scale(1.08);
+}
+
+/* Lists — light stagger fade */
 .tx-list {
   list-style: none;
   margin: 0;
@@ -400,6 +590,35 @@ a {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.tx-list > li {
+  animation: fade-up var(--dur-med) var(--ease-out) both;
+}
+
+.tx-list > li:nth-child(1) {
+  animation-delay: 0ms;
+}
+.tx-list > li:nth-child(2) {
+  animation-delay: 30ms;
+}
+.tx-list > li:nth-child(3) {
+  animation-delay: 55ms;
+}
+.tx-list > li:nth-child(4) {
+  animation-delay: 80ms;
+}
+.tx-list > li:nth-child(5) {
+  animation-delay: 100ms;
+}
+.tx-list > li:nth-child(6) {
+  animation-delay: 115ms;
+}
+.tx-list > li:nth-child(7) {
+  animation-delay: 130ms;
+}
+.tx-list > li:nth-child(n + 8) {
+  animation-delay: 140ms;
 }
 
 .tx-item {
@@ -410,6 +629,17 @@ a {
   border-radius: var(--radius-soft);
   background: rgba(255, 255, 255, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.6);
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    background var(--dur-fast) ease,
+    box-shadow var(--dur-med) var(--ease-soft);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.tx-item:active {
+  transform: scale(0.985);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .tx-icon {
@@ -504,6 +734,7 @@ a {
   border-radius: var(--radius-soft);
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.7);
+  transition: transform var(--dur-fast) var(--ease-soft);
 }
 
 .stat-pill .k {
@@ -544,7 +775,7 @@ a {
   border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.45);
   position: relative;
-  transition: background 0.2s;
+  transition: background var(--dur-med) ease;
   flex-shrink: 0;
 }
 
@@ -562,7 +793,7 @@ a {
   border-radius: var(--radius-pill);
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s;
+  transition: transform var(--dur-med) var(--ease-out);
 }
 
 .toggle.on::after {
@@ -588,10 +819,22 @@ a {
   font-weight: 600;
   color: var(--text-muted);
   min-height: 68px;
+  transition:
+    transform var(--dur-fast) var(--ease-soft),
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.cat-btn:active {
+  transform: scale(0.94);
 }
 
 .cat-btn .emoji {
   font-size: 1.35rem;
+  transition: transform var(--dur-fast) var(--ease-soft);
 }
 
 .cat-btn.active {
@@ -600,15 +843,21 @@ a {
   color: var(--blue-700);
 }
 
+.cat-btn.active .emoji {
+  transform: scale(1.08);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.35);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 100;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: fade-in var(--dur-fast) ease both;
 }
 
 .modal-sheet {
@@ -616,10 +865,12 @@ a {
   max-height: 88dvh;
   overflow: auto;
   background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-radius: 28px 28px 0 0;
   padding: 16px 16px calc(20px + var(--safe-bottom));
   box-shadow: 0 -8px 40px rgba(37, 99, 235, 0.15);
+  animation: sheet-up var(--dur-med) var(--ease-out) both;
 }
 
 .modal-handle {
@@ -675,6 +926,11 @@ a {
   border-radius: 16px;
   border: 2px solid rgba(255, 255, 255, 0.8);
   flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease-soft);
+}
+
+.thumb:active {
+  transform: scale(0.96);
 }
 
 .ocr-draft {
@@ -683,6 +939,7 @@ a {
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.65);
   list-style: none;
+  animation: fade-up var(--dur-med) var(--ease-out) both;
 }
 
 .glass-inner {
@@ -704,4 +961,45 @@ a {
   min-height: 30px;
   padding: 4px 10px;
   font-size: 0.75rem;
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.01ms;
+    --dur-med: 0.01ms;
+    --dur-slow: 0.01ms;
+  }
+
+  .page-view,
+  .page-view .glass,
+  .tx-list > li,
+  .modal-backdrop,
+  .modal-sheet,
+  .ocr-draft {
+    animation: none !important;
+  }
+
+  .btn:active:not(:disabled),
+  .btn-icon:active,
+  .chip:active,
+  .nav-item:active,
+  .tx-item:active,
+  .cat-btn:active,
+  .glass:active,
+  .thumb:active {
+    transform: none;
+  }
+
+  .progress-fill {
+    transition: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover:not(:disabled),
+    .btn-secondary:hover:not(:disabled),
+    .btn-ghost:hover:not(:disabled) {
+      transform: none;
+    }
+  }
 }

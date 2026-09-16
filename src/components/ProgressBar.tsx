@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BudgetStatus } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
 
@@ -20,6 +21,13 @@ interface Props {
 export function ProgressBar({ label, used, budget, status, remainLabel = true, extra }: Props) {
   const pct = budget > 0 ? Math.min(100, Math.max(0, (used / budget) * 100)) : used > 0 ? 100 : 0;
   const remain = budget - used;
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return (
     <div className="progress-wrap">
       <div className="progress-meta">
@@ -32,7 +40,10 @@ export function ProgressBar({ label, used, budget, status, remainLabel = true, e
         </span>
       </div>
       <div className="progress-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`progress-fill status-${status}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`progress-fill status-${status}`}
+          style={{ transform: `scaleX(${ready ? pct / 100 : 0})` }}
+        />
       </div>
       {(remainLabel || extra) && (
         <p className="hint">

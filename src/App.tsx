@@ -28,12 +28,14 @@ export default function App() {
         </button>
       </header>
 
-      {tab === 'home' && (
-        <Dashboard store={store} onAdd={() => setTab('add')} onOpenTx={() => setTab('list')} />
-      )}
-      {tab === 'add' && <AddTransaction store={store} onDone={() => setTab('home')} />}
-      {tab === 'list' && <TransactionList store={store} />}
-      {tab === 'settings' && <SettingsPage store={store} />}
+      <div key={tab} className="page-view">
+        {tab === 'home' && (
+          <Dashboard store={store} onAdd={() => setTab('add')} onOpenTx={() => setTab('list')} />
+        )}
+        {tab === 'add' && <AddTransaction store={store} onDone={() => setTab('home')} />}
+        {tab === 'list' && <TransactionList store={store} />}
+        {tab === 'settings' && <SettingsPage store={store} />}
+      </div>
 
       <BottomNav active={tab} onChange={setTab} />
     </div>

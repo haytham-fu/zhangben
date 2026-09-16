@@ -9,10 +9,16 @@ interface Props {
 
 export function GlassCard({ title, children, className = '', action }: Props) {
   return (
-    <section className={`glass ${className}`}>
+    <section className={`glass ${className}`.trim()}>
       {(title || action) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          {title ? <h2 className="glass-title" style={{ marginBottom: action ? 10 : undefined }}>{title}</h2> : <span />}
+        <div className="glass-head">
+          {title ? (
+            <h2 className="glass-title" style={{ marginBottom: action ? 10 : undefined }}>
+              {title}
+            </h2>
+          ) : (
+            <span />
+          )}
           {action}
         </div>
       )}
