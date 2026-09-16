@@ -5,6 +5,7 @@ import { PaymentPicker } from '../components/PaymentPicker';
 import type { Store } from '../hooks/useStore';
 import type { Bucket, Currency, PaymentMethod, TxKind, TxType } from '../types';
 import { formatRmb, toRmbWithRate } from '../utils/currency';
+import type { DeepLinkAddPrefill } from '../utils/deepLink';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
 import { OcrImport } from './OcrImport';
@@ -12,12 +13,14 @@ import { OcrImport } from './OcrImport';
 interface Props {
   store: Store;
   onDone: () => void;
+  deepLink?: DeepLinkAddPrefill | null;
+  onDeepLinkConsumed?: () => void;
 }
 
 type Mode = 'hub' | 'wizard' | 'ocr' | 'income' | 'topup' | 'batch';
 type WizardStep = 'category' | 'payment' | 'details';
 
-export function AddTransaction({ store, onDone }: Props) {
+export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsumed }: Props) {
   const { categories, wallets, settings, todayStr, addTransaction, updateSettings } = store;
   const [mode, setMode] = useState<Mode>('hub');
   const [wizardStep, setWizardStep] = useState<WizardStep>('category');
@@ -103,20 +106,27 @@ export function AddTransaction({ store, onDone }: Props) {
     setWalletId(null);
   }
 
-  function startExpenseWizard() {
+  function startExpenseWizard(prefill?: DeepLinkAddPrefill | null) {
     setMode('wizard');
     setWizardStep('category');
     setType('expense');
     setKind('normal');
     setCategoryId('food');
     setPaymentMethod('other');
-    setCurrency('RMB');
-    setAmount('');
-    setNote('');
+    setCurrency(prefill?.currency ?? 'RMB');
+    setAmount(prefill?.amount ?? '');
+    setNote(prefill?.note ?? '');
     setIsSpecial(false);
     setDate(todayStr);
     setWalletId(null);
   }
+
+  useEffect(() => {
+    if (!deepLink) return;
+    startExpenseWizard(deepLink);
+    onDeepLinkConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink]);
 
   async function submitSingle() {
     const n = parseFloat(amount);
@@ -241,7 +251,7 @@ export function AddTransaction({ store, onDone }: Props) {
             <IconAdd size={56} />
           </div>
           <div className="add-hero-actions">
-            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={startExpenseWizard}>
+            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={() => startExpenseWizard()}>
               记账
             </button>
             <button
@@ -266,18 +276,6 @@ export function AddTransaction({ store, onDone }: Props) {
     return (
       <>
         <GlassCard title="记一笔支出">
-          <div className="wizard-steps" aria-label="记账步骤">
-            <span className={`wizard-dot ${wizardStep === 'category' ? 'on' : 'done'}`}>1 类型</span>
-            <span className="wizard-sep">→</span>
-            <span
-              className={`wizard-dot ${wizardStep === 'payment' ? 'on' : wizardStep === 'details' ? 'done' : ''}`}
-            >
-              2 扣款
-            </span>
-            <span className="wizard-sep">→</span>
-            <span className={`wizard-dot ${wizardStep === 'details' ? 'on' : ''}`}>3 金额</span>
-          </div>
-
           {wizardStep === 'details' && selected && (
             <div className="wizard-summary section-gap">
               <button type="button" className="chip chip-with-icon" onClick={() => setWizardStep('category')}>

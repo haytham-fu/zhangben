@@ -16,7 +16,7 @@ interface Props {
 export function TransactionList({ store }: Props) {
   const { transactions, categoryMap, walletMap, categories, currentYm, deleteTransaction } = store;
   const [ym, setYm] = useState(currentYm);
-  const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'topup'>('all');
+  const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
   const [selected, setSelected] = useState<Transaction | null>(null);
 
@@ -24,7 +24,6 @@ export function TransactionList({ store }: Props) {
     let txs = filterMonth(transactions, ym);
     if (filter === 'expense') txs = txs.filter((t) => t.type === 'expense' && t.kind !== 'topup');
     if (filter === 'income') txs = txs.filter((t) => t.type === 'income');
-    if (filter === 'topup') txs = txs.filter((t) => t.kind === 'topup');
     if (payFilter !== 'all') txs = txs.filter((t) => t.paymentMethod === payFilter);
     return txs;
   }, [transactions, ym, filter, payFilter]);
@@ -47,7 +46,6 @@ export function TransactionList({ store }: Props) {
               ['all', '全部'],
               ['expense', '支出'],
               ['income', '收入'],
-              ['topup', '充值'],
             ] as const
           ).map(([k, label]) => (
             <button

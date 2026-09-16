@@ -26,6 +26,9 @@ export const DEFAULT_SETTINGS: Settings = {
   liveUsdRate: null,
   liveRatesUpdatedAt: null,
   themeColor: '#3b82f6',
+  showGoldMountain: true,
+  themePalette: 'sky',
+  bgMotion: 'dynamic',
 };
 
 export const DEFAULT_CATEGORIES: Category[] = [

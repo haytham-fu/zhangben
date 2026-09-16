@@ -1,5 +1,7 @@
 import { format } from 'date-fns';
+import { AdviceFlowCard } from '../components/AdviceFlowCard';
 import { EmptyState } from '../components/EmptyState';
+import { GoldMountain } from '../components/GoldMountain';
 import { IconEmptyLedger, IconEmptySpend } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { ProgressBar } from '../components/ProgressBar';
@@ -22,9 +24,10 @@ import { formatRmb } from '../utils/currency';
 interface Props {
   store: Store;
   onOpenTx: (id: string) => void;
+  adviceAnimated?: boolean;
 }
 
-export function Dashboard({ store, onOpenTx }: Props) {
+export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
@@ -59,6 +62,12 @@ export function Dashboard({ store, onOpenTx }: Props) {
 
   return (
     <>
+      <AdviceFlowCard
+        title={planOn ? '节奏建议' : '本月概览'}
+        items={advice}
+        animated={adviceAnimated}
+      />
+
       <GlassCard title={`今日 · ${weekdayLabel(todayStr)} ${format(new Date(), 'M/d')}`}>
         {planOn ? (
           <ProgressBar
@@ -112,6 +121,9 @@ export function Dashboard({ store, onOpenTx }: Props) {
       </GlassCard>
 
       <GlassCard title={planOn ? '本月预算' : '本月汇总'}>
+        {settings.showGoldMountain !== false && (
+          <GoldMountain remaining={totalBudget - totalUsed} budget={totalBudget} />
+        )}
         {planOn ? (
           <>
             <ProgressBar
@@ -156,14 +168,6 @@ export function Dashboard({ store, onOpenTx }: Props) {
             </div>
           </div>
         )}
-      </GlassCard>
-
-      <GlassCard title={planOn ? '节奏建议' : '本月概览'}>
-        <ul className="advice-list">
-          {advice.map((t) => (
-            <li key={t}>{t}</li>
-          ))}
-        </ul>
       </GlassCard>
 
       <GlassCard title="分类汇总（本月支出）">

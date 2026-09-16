@@ -7,7 +7,7 @@ const TABS: { id: TabId; icon: NavIconId; label: string }[] = [
   { id: 'calendar', icon: 'calendar', label: '日历' },
   { id: 'add', icon: 'add', label: '记账' },
   { id: 'wallets', icon: 'wallets', label: '小荷包' },
-  { id: 'list', icon: 'list', label: '流水' },
+  { id: 'list', icon: 'list', label: '流水明细' },
   { id: 'settings', icon: 'settings', label: '设置' },
 ];
 

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import type { Store } from '../hooks/useStore';
+import type { BgMotion, ThemePalette } from '../types';
 import { DEFAULT_SETTINGS } from '../utils/defaults';
 import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographic';
 import { applyLiveBundleToSettings, fetchLiveRates } from '../utils/fx';
@@ -69,6 +70,72 @@ export function SettingsPage({ store }: Props) {
             className={`toggle ${planOn ? 'on' : ''}`}
             aria-label="计划生活费每天支出对照"
             onClick={() => updateSettings({ dailyPlanCompareEnabled: !planOn })}
+          />
+        </div>
+      </GlassCard>
+
+      <GlassCard title="外观">
+        <p className="sheet-section-label">背景</p>
+        <div className="chip-row" style={{ marginBottom: 12 }}>
+          {(
+            [
+              ['static', '静态'],
+              ['dynamic', '动态'],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              className={`chip ${(settings.bgMotion ?? 'dynamic') === k ? 'active' : ''}`}
+              onClick={() => updateSettings({ bgMotion: k as BgMotion })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="hint" style={{ marginTop: -4, marginBottom: 12 }}>
+          动态为柔和流动渐变；系统开启「减少动态效果」时自动回退为静态
+        </p>
+
+        <p className="sheet-section-label">配色</p>
+        <div className="palette-row" style={{ marginBottom: 14 }}>
+          {(
+            [
+              ['sky', '晴空', '#93c5fd', '#dbeafe'],
+              ['mist', '薄雾', '#c7d2fe', '#e0e7ff'],
+              ['sand', '暖沙', '#e8d4a8', '#f5f0e8'],
+              ['sage', '鼠尾草', '#a7c4b5', '#e8f0ec'],
+              ['lilac', '丁香', '#c4b5fd', '#ede9fe'],
+            ] as const
+          ).map(([id, label, a, b]) => (
+            <button
+              key={id}
+              type="button"
+              className={`palette-swatch ${(settings.themePalette ?? 'sky') === id ? 'active' : ''}`}
+              aria-label={label}
+              title={label}
+              onClick={() => updateSettings({ themePalette: id as ThemePalette })}
+              style={{ background: `linear-gradient(145deg, ${a}, ${b})` }}
+            >
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="toggle-row">
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>显示小金山</div>
+            <p className="hint" style={{ margin: '4px 0 0' }}>
+              总览「本月预算」上方用软金色小山表示剩余预算；关闭后仅保留进度条
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${settings.showGoldMountain !== false ? 'on' : ''}`}
+            aria-label="显示小金山"
+            onClick={() =>
+              updateSettings({ showGoldMountain: !(settings.showGoldMountain !== false) })
+            }
           />
         </div>
       </GlassCard>

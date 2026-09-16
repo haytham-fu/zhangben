@@ -20,6 +20,12 @@ export type SatMode = 'play' | 'stay';
 
 export type FxRateMode = 'live' | 'fixed';
 
+/** App background / accent palette (soft, glass-friendly) */
+export type ThemePalette = 'sky' | 'mist' | 'sand' | 'sage' | 'lilac';
+
+/** Body background motion */
+export type BgMotion = 'static' | 'dynamic';
+
 /** Top-up / balance-only: does not count toward budget spending */
 export type TxKind = 'normal' | 'topup';
 
@@ -98,6 +104,12 @@ export interface Settings {
   liveUsdRate: number | null;
   liveRatesUpdatedAt: string | null;
   themeColor: string;
+  /** Dashboard 小金山 illustration for remaining budget */
+  showGoldMountain: boolean;
+  /** Soft color palette for glass UI */
+  themePalette: ThemePalette;
+  /** Static vs flowing animated page background */
+  bgMotion: BgMotion;
 }
 
 export interface AppState {
