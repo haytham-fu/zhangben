@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react';
-import { EmptyState } from '../components/EmptyState';
-import { IconEmptyWallet } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { ProgressBar } from '../components/ProgressBar';
 import type { Store } from '../hooks/useStore';
@@ -147,14 +145,7 @@ export function WalletsPage({ store }: Props) {
       </div>
 
       <GlassCard title="我的小荷包">
-        {sortedWallets.length === 0 ? (
-          <EmptyState
-            icon={<IconEmptyWallet size={52} />}
-            title="还没有小荷包"
-            hint="点上方「+ 新建小荷包」创建一个～"
-          />
-        ) : (
-          <ul className="wallet-list">
+        <ul className="wallet-list">
             {sortedWallets.map((w) => {
               const spent = walletSpend(transactions, w.id, currentYm);
               const remain = Math.round((w.allocated - spent) * 100) / 100;
@@ -195,7 +186,6 @@ export function WalletsPage({ store }: Props) {
               );
             })}
           </ul>
-        )}
       </GlassCard>
 
       {adding && (

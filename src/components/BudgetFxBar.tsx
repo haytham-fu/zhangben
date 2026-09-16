@@ -7,9 +7,11 @@ import {
   CURRENCY_META,
   FOREIGN_CURRENCIES,
   formatRmb,
+  getRate,
   isForeignCurrency,
   normalizePreferredCurrencies,
   setFixedRate,
+  toRmb,
 } from '../utils/currency';
 import {
   applyLiveBundleToSettings,
@@ -27,6 +29,7 @@ export function BudgetFxBar({ store }: Props) {
   const [fxBusy, setFxBusy] = useState(false);
   const [fxMsg, setFxMsg] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [convAmounts, setConvAmounts] = useState<Partial<Record<ForeignCurrency, string>>>({});
 
   const preferred = normalizePreferredCurrencies(settings.preferredCurrencies);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
@@ -216,6 +219,43 @@ export function BudgetFxBar({ store }: Props) {
             );
           })}
         </div>
+
+        {foreignPrefs.length > 0 && (
+          <div className="bfx-converters">
+            {foreignPrefs.map((c) => {
+              const raw = convAmounts[c] ?? '';
+              const amt = Number(raw);
+              const rmb = Number.isFinite(amt) && amt !== 0 ? toRmb(amt, c, settings) : toRmb(0, c, settings);
+              const rate = getRate(c, settings);
+              return (
+                <div className="bfx-conv-box" key={c}>
+                  <div className="bfx-conv-title">
+                    {CURRENCY_META[c].zh} → 人民币
+                  </div>
+                  <div className="bfx-conv-row">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="金额"
+                      aria-label={`${CURRENCY_META[c].zh}金额`}
+                      value={raw}
+                      onChange={(e) =>
+                        setConvAmounts((prev) => ({ ...prev, [c]: e.target.value }))
+                      }
+                    />
+                    <span className="bfx-conv-eq" aria-hidden>
+                      =
+                    </span>
+                    <span className="bfx-conv-rmb">{formatRmb(Number.isFinite(amt) ? rmb : 0)}</span>
+                  </div>
+                  <p className="hint bfx-conv-rate">
+                    1 {CURRENCY_META[c].zh} ≈ {rate.toFixed(4)} 人民币
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {fxMsg && <p className="hint section-gap">{fxMsg}</p>}
       </div>
