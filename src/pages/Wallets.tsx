@@ -210,19 +210,16 @@ export function WalletsPage({ store }: Props) {
                 placeholder="例如 500"
                 value={addAllocated}
                 onChange={(e) => setAddAllocated(e.target.value)}
-                autoFocus
               />
             </div>
-            <button type="button" className="btn btn-primary btn-block" onClick={confirmAdd}>
-              创建（自动命名上色）
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-block section-gap"
-              onClick={() => setAdding(false)}
-            >
-              取消
-            </button>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-primary btn-block" onClick={confirmAdd}>
+                创建（自动命名上色）
+              </button>
+              <button type="button" className="btn btn-secondary btn-block" onClick={() => setAdding(false)}>
+                取消
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -259,12 +256,14 @@ export function WalletsPage({ store }: Props) {
                 ))}
               </div>
             </div>
-            <button type="button" className="btn btn-primary btn-block" onClick={saveEdit}>
-              保存
-            </button>
-            <button type="button" className="btn btn-secondary btn-block section-gap" onClick={() => setEdit(null)}>
-              取消
-            </button>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-primary btn-block" onClick={saveEdit}>
+                保存
+              </button>
+              <button type="button" className="btn btn-secondary btn-block" onClick={() => setEdit(null)}>
+                取消
+              </button>
+            </div>
           </div>
         </div>
       )}

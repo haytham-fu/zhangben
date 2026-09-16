@@ -269,6 +269,26 @@ a {
   }
 }
 
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Tab / page content enter */
 .page-view {
   animation: page-enter var(--dur-med) var(--ease-out) both;
@@ -1014,54 +1034,56 @@ a {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.35);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 200;
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  z-index: 10000;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding: 12px 0 calc(12px + var(--dock-height) + var(--safe-bottom));
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  animation: fade-in var(--dur-fast) ease both;
+  animation: modal-backdrop-in 420ms ease both;
 }
 
 .modal-sheet {
-  width: min(480px, 100%);
-  max-height: min(85dvh, calc(100dvh - var(--dock-height) - var(--safe-bottom) - 24px));
+  width: min(420px, 100%);
+  max-height: min(90dvh, 100%);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: linear-gradient(
     165deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(239, 246, 255, 0.78) 100%
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(239, 246, 255, 0.88) 100%
   );
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid rgba(255, 255, 255, 0.85);
-  border-radius: 28px 28px 20px 20px;
-  padding: 16px 16px calc(24px + var(--safe-bottom));
-  margin: 0 8px;
+  border-radius: 24px;
+  padding: 20px 18px 22px;
+  margin: auto;
   box-shadow:
-    0 -8px 40px rgba(37, 99, 235, 0.15),
+    0 12px 40px rgba(37, 99, 235, 0.14),
+    0 2px 12px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  animation: sheet-up var(--dur-med) var(--ease-out) both;
+  animation: modal-card-in 480ms var(--ease-spring-soft) both;
+  will-change: transform, opacity;
   overscroll-behavior: contain;
+  flex-shrink: 0;
 }
 
-@media (max-height: 640px) {
-  .modal-backdrop {
-    align-items: center;
-    padding: 12px 0 calc(8px + var(--dock-height) + var(--safe-bottom));
-  }
-
-  .modal-sheet {
-    max-height: min(78dvh, calc(100dvh - var(--dock-height) - var(--safe-bottom) - 32px));
-    border-radius: 24px;
-  }
+.modal-sheet .modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  position: sticky;
+  bottom: 0;
+  padding-top: 8px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.95) 30%);
 }
 
 .modal-handle {
