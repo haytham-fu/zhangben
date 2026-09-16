@@ -24,6 +24,7 @@ export function TransactionItem({ tx, category, wallet, onClick }: Props) {
           <div className="title">
             {title}
             {tx.isSpecial && <span className="badge badge-special">请客</span>}
+            {tx.isMonthly && <span className="badge badge-monthly">月度</span>}
             {isTopup && <span className="badge badge-topup">充值·不计支出</span>}
             {payLabel && !isTopup && (
               <span className={`badge ${paymentBadgeClass(tx.paymentMethod)}`}>{payLabel}</span>

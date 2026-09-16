@@ -124,7 +124,7 @@ export function TransactionList({ store }: Props) {
             </p>
             <p className="hint">
               {selected.date} · {selected.bucket === 'special' ? '专项' : '基础'}
-              {selected.isSpecial ? ' · 请客特例' : ''}
+              {selected.isSpecial ? ' · 请客特例' : ''}{selected.isMonthly ? ' · 月度支出' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出' : ''}
               {selected.paymentMethod !== 'none'
                 ? ` · ${PAYMENT_LABEL[selected.paymentMethod]}`

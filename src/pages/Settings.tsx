@@ -11,8 +11,7 @@ interface Props {
 }
 
 export function SettingsPage({ store }: Props) {
-  const { settings, updateSettings, ensureMusicMembership, currentYm, replaceState, resetAll, state } =
-    store;
+  const { settings, updateSettings, currentYm, replaceState, resetAll, state } = store;
   const fileRef = useRef<HTMLInputElement>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [jpgBusy, setJpgBusy] = useState(false);
@@ -227,30 +226,6 @@ export function SettingsPage({ store }: Props) {
       </GlassCard>
       )}
 
-      <GlassCard title="音乐会员（专项）">
-        <div className="toggle-row">
-          <span style={{ fontSize: '0.85rem' }}>月初自动入账</span>
-          <button
-            type="button"
-            className={`toggle ${settings.musicMembershipEnabled ? 'on' : ''}`}
-            onClick={() =>
-              updateSettings({ musicMembershipEnabled: !settings.musicMembershipEnabled })
-            }
-          />
-        </div>
-        <div className="field">
-          <label>金额 (HKD)</label>
-          <input
-            type="number"
-            value={settings.musicMembershipHkd}
-            onChange={(e) => updateSettings({ musicMembershipHkd: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <button type="button" className="btn btn-secondary btn-block" onClick={() => ensureMusicMembership(currentYm)}>
-          立即生成本月会员记录
-        </button>
-        <p className="hint">计入 1500 专项，不拆到天。默认 48 HKD。</p>
-      </GlassCard>
 
       <GlassCard title="数据">
         <button
@@ -314,11 +289,6 @@ export function SettingsPage({ store }: Props) {
         <p className="hint">数据仅保存在本机浏览器 localStorage，无登录、不上云。</p>
       </GlassCard>
 
-      <GlassCard title="关于">
-        <p style={{ margin: 0, fontSize: '0.9rem' }}>
-          「账本」PWA · 月预算 5000 = 3500 基础 + 1500 专项。八达通充值不计支出。空调请手动记账。
-        </p>
-      </GlassCard>
     </>
   );
 }

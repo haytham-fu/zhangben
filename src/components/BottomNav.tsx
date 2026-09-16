@@ -30,6 +30,17 @@ export function BottomNav({ active, onChange }: Props) {
   const [blob, setBlob] = useState<BlobRect>({ left: 0, width: 0, height: 0, top: 0 });
   const [ready, setReady] = useState(false);
   const [bump, setBump] = useState(false);
+  const reduceMotion = useRef(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reduceMotion.current = mq.matches;
+    const onChangeMq = () => {
+      reduceMotion.current = mq.matches;
+    };
+    mq.addEventListener('change', onChangeMq);
+    return () => mq.removeEventListener('change', onChangeMq);
+  }, []);
 
   const measure = useCallback(() => {
     const nav = navRef.current;
@@ -65,9 +76,20 @@ export function BottomNav({ active, onChange }: Props) {
   }, [measure]);
 
   useEffect(() => {
-    setBump(true);
-    const t = window.setTimeout(() => setBump(false), 420);
-    return () => window.clearTimeout(t);
+    if (reduceMotion.current) {
+      setBump(false);
+      return;
+    }
+    setBump(false);
+    // Retrigger CSS animation class on every tab change
+    const raf = window.requestAnimationFrame(() => {
+      setBump(true);
+    });
+    const t = window.setTimeout(() => setBump(false), 560);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
   }, [active]);
 
   return (
@@ -88,7 +110,7 @@ export function BottomNav({ active, onChange }: Props) {
           ref={(el) => {
             btnRefs.current[t.id] = el;
           }}
-          className={`nav-item ${active === t.id ? 'active' : ''}`}
+          className={`nav-item ${active === t.id ? 'active' : ''} ${active === t.id && bump ? 'nav-item--pop' : ''}`}
           onClick={() => onChange(t.id)}
         >
           <span className="nav-icon">

@@ -24,9 +24,9 @@
   --gold-500: #b8955a;
   /* Page background (overridden by data-palette) */
   --bg-grad: linear-gradient(160deg, #dbeafe 0%, #c7dbf8 32%, #e4e9f7 68%, #f5f0e8 100%);
-  --bg-blob-a: rgba(147, 197, 253, 0.45);
-  --bg-blob-b: rgba(196, 181, 253, 0.28);
-  --bg-blob-c: rgba(232, 212, 168, 0.32);
+  --bg-blob-a: rgba(96, 165, 250, 0.62);
+  --bg-blob-b: rgba(167, 139, 250, 0.48);
+  --bg-blob-c: rgba(232, 184, 109, 0.5);
   --advice-a: rgba(96, 165, 250, 0.35);
   --advice-b: rgba(167, 139, 250, 0.28);
   --advice-c: rgba(232, 184, 109, 0.3);
@@ -43,7 +43,8 @@
     inset 0 -1px 0 rgba(147, 197, 253, 0.18);
   --glass-shadow: 0 8px 32px rgba(37, 99, 235, 0.12), 0 1px 0 rgba(255, 255, 255, 0.5);
   --glass-blur: blur(18px) saturate(180%);
-  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1.55, 0.36, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.35, 0.64, 1);
   --radius-pill: 9999px;
   --radius-soft: 20px;
   --radius-card: 24px;
@@ -86,52 +87,80 @@ body {
   isolation: isolate;
 }
 
-/* Soft flowing page blobs when dynamic motion is on */
+/* Flowing page blobs when dynamic motion is on (noticeable, still soft) */
 body::before,
 body::after {
   content: "";
   position: fixed;
-  inset: -20% auto auto -10%;
-  width: 70vmax;
-  height: 70vmax;
+  inset: -28% auto auto -18%;
+  width: 85vmax;
+  height: 85vmax;
   border-radius: 50%;
   pointer-events: none;
   z-index: -1;
   opacity: 0;
-  filter: blur(48px);
-  background: radial-gradient(circle at 30% 30%, var(--bg-blob-a), transparent 65%);
-  transition: opacity 0.4s ease;
+  filter: blur(40px);
+  background: radial-gradient(circle at 32% 28%, var(--bg-blob-a), transparent 62%);
+  transition: opacity 0.45s ease;
+  will-change: transform;
 }
 
 body::after {
-  inset: auto -15% -25% auto;
-  width: 60vmax;
-  height: 60vmax;
-  background: radial-gradient(circle at 60% 40%, var(--bg-blob-b), transparent 70%);
+  inset: auto -22% -30% auto;
+  width: 78vmax;
+  height: 78vmax;
+  background: radial-gradient(circle at 58% 42%, var(--bg-blob-b), transparent 64%);
+  filter: blur(44px);
+}
+
+/* Third gold-tint blob via body box-shadow substitute: use #root sibling via html */
+html[data-bg-motion="dynamic"] body {
+  background-size: 140% 140%;
+  animation: bg-grad-shift 18s var(--ease-soft) infinite alternate;
 }
 
 html[data-bg-motion="dynamic"] body::before,
 html[data-bg-motion="dynamic"] body::after {
-  opacity: 1;
-  animation: bg-blob-drift 22s var(--ease-soft) infinite alternate;
+  opacity: 0.95;
+  animation: bg-blob-drift 14s var(--ease-soft) infinite alternate;
 }
 
 html[data-bg-motion="dynamic"] body::after {
-  animation-duration: 28s;
+  animation-name: bg-blob-drift-b;
+  animation-duration: 18s;
   animation-direction: alternate-reverse;
 }
 
 @keyframes bg-blob-drift {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(6%, 4%) scale(1.08); }
-  100% { transform: translate(-4%, 8%) scale(0.96); }
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(14%, 10%) scale(1.18) rotate(4deg); }
+  66% { transform: translate(-10%, 16%) scale(0.92) rotate(-3deg); }
+  100% { transform: translate(8%, -8%) scale(1.12) rotate(2deg); }
+}
+
+@keyframes bg-blob-drift-b {
+  0% { transform: translate(0, 0) scale(1.05) rotate(0deg); }
+  40% { transform: translate(-16%, -12%) scale(1.22) rotate(-5deg); }
+  70% { transform: translate(12%, 8%) scale(0.88) rotate(3deg); }
+  100% { transform: translate(-6%, 14%) scale(1.15) rotate(-2deg); }
+}
+
+@keyframes bg-grad-shift {
+  0% { background-position: 0% 40%; }
+  50% { background-position: 60% 20%; }
+  100% { background-position: 30% 80%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html[data-bg-motion="dynamic"] body {
+    animation: none !important;
+    background-size: auto;
+  }
   html[data-bg-motion="dynamic"] body::before,
   html[data-bg-motion="dynamic"] body::after {
     animation: none !important;
-    opacity: 0.55;
+    opacity: 0.5;
+    will-change: auto;
   }
 }
 
@@ -838,6 +867,10 @@ a {
   background: rgba(100, 116, 139, 0.15);
   color: var(--text-muted);
 }
+.badge-monthly {
+  background: rgba(184, 149, 90, 0.18);
+  color: var(--gold-500);
+}
 .badge-octopus {
   background: rgba(59, 130, 246, 0.12);
   color: var(--blue-600);
@@ -1262,6 +1295,7 @@ a {
 .add-hero-btn {
   font-size: 1.05rem;
   min-height: 52px;
+  font-weight: 700;
 }
 
 .add-hero-actions {
@@ -1734,9 +1768,9 @@ a {
 /* —— Theme palettes (soft, glass-friendly) —— */
 html[data-palette="sky"] {
   --bg-grad: linear-gradient(160deg, #dbeafe 0%, #c7dbf8 32%, #e4e9f7 68%, #f5f0e8 100%);
-  --bg-blob-a: rgba(147, 197, 253, 0.45);
-  --bg-blob-b: rgba(196, 181, 253, 0.28);
-  --bg-blob-c: rgba(232, 212, 168, 0.32);
+  --bg-blob-a: rgba(96, 165, 250, 0.58);
+  --bg-blob-b: rgba(167, 139, 250, 0.42);
+  --bg-blob-c: rgba(232, 184, 109, 0.45);
   --advice-a: rgba(96, 165, 250, 0.38);
   --advice-b: rgba(167, 139, 250, 0.28);
   --advice-c: rgba(232, 184, 109, 0.28);
@@ -1745,11 +1779,11 @@ html[data-palette="sky"] {
 
 html[data-palette="mist"] {
   --bg-grad: linear-gradient(160deg, #e0e7ff 0%, #e2e8f0 40%, #f1f5f9 100%);
-  --bg-blob-a: rgba(199, 210, 254, 0.5);
-  --bg-blob-b: rgba(148, 163, 184, 0.28);
-  --bg-blob-c: rgba(226, 232, 240, 0.4);
+  --bg-blob-a: rgba(165, 180, 252, 0.62);
+  --bg-blob-b: rgba(148, 163, 184, 0.42);
+  --bg-blob-c: rgba(226, 232, 240, 0.55);
   --advice-a: rgba(129, 140, 248, 0.32);
-  --advice-b: rgba(148, 163, 184, 0.28);
+  --advice-b: rgba(148, 163, 184, 0.42);
   --advice-c: rgba(191, 219, 254, 0.35);
   --blue-500: #6366f1;
   --blue-600: #4f46e5;
@@ -1758,20 +1792,20 @@ html[data-palette="mist"] {
 
 html[data-palette="sand"] {
   --bg-grad: linear-gradient(160deg, #f5f0e8 0%, #e8d4a8 28%, #dbeafe 70%, #eff6ff 100%);
-  --bg-blob-a: rgba(232, 212, 168, 0.5);
-  --bg-blob-b: rgba(147, 197, 253, 0.3);
-  --bg-blob-c: rgba(245, 230, 200, 0.4);
+  --bg-blob-a: rgba(232, 184, 109, 0.62);
+  --bg-blob-b: rgba(96, 165, 250, 0.48);
+  --bg-blob-c: rgba(245, 230, 200, 0.55);
   --advice-a: rgba(201, 168, 108, 0.35);
   --advice-b: rgba(96, 165, 250, 0.28);
-  --advice-c: rgba(245, 230, 200, 0.4);
+  --advice-c: rgba(245, 230, 200, 0.55);
   --glass-shadow: 0 8px 32px rgba(184, 149, 90, 0.12);
 }
 
 html[data-palette="sage"] {
   --bg-grad: linear-gradient(160deg, #e8f0ec 0%, #c5d9ce 35%, #dbeafe 72%, #f0f7f4 100%);
-  --bg-blob-a: rgba(167, 196, 181, 0.48);
+  --bg-blob-a: rgba(134, 188, 160, 0.6);
   --bg-blob-b: rgba(147, 197, 253, 0.28);
-  --bg-blob-c: rgba(190, 220, 200, 0.35);
+  --bg-blob-c: rgba(190, 220, 200, 0.5);
   --advice-a: rgba(110, 170, 140, 0.35);
   --advice-b: rgba(96, 165, 250, 0.26);
   --advice-c: rgba(201, 168, 108, 0.25);
@@ -1782,9 +1816,9 @@ html[data-palette="sage"] {
 
 html[data-palette="lilac"] {
   --bg-grad: linear-gradient(160deg, #ede9fe 0%, #ddd6fe 30%, #dbeafe 68%, #f5f3ff 100%);
-  --bg-blob-a: rgba(196, 181, 253, 0.48);
-  --bg-blob-b: rgba(147, 197, 253, 0.3);
-  --bg-blob-c: rgba(233, 213, 255, 0.35);
+  --bg-blob-a: rgba(167, 139, 250, 0.6);
+  --bg-blob-b: rgba(96, 165, 250, 0.48);
+  --bg-blob-c: rgba(233, 213, 255, 0.5);
   --advice-a: rgba(167, 139, 250, 0.36);
   --advice-b: rgba(96, 165, 250, 0.28);
   --advice-c: rgba(244, 114, 182, 0.18);
@@ -1951,7 +1985,7 @@ html[data-palette="lilac"] {
 }
 
 
-/* —— Liquid glass dock blob —— */
+/* —— Liquid glass dock blob (Q弹 spring) —— */
 .liquid-dock {
   overflow: visible;
 }
@@ -1977,17 +2011,18 @@ html[data-palette="lilac"] {
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 0 -1px 0 rgba(59, 130, 246, 0.12);
   transition:
-    transform 420ms var(--ease-spring),
-    width 420ms var(--ease-spring),
-    height 320ms var(--ease-soft),
-    opacity 220ms ease;
-  will-change: transform, width, height;
+    transform 520ms var(--ease-spring),
+    width 480ms var(--ease-spring-soft),
+    height 420ms var(--ease-spring-soft),
+    opacity 200ms ease;
+  will-change: transform, width;
+  transform-origin: center center;
 }
 .dock-liquid-blob--ready {
   opacity: 1;
 }
 .dock-liquid-blob--bump {
-  filter: saturate(1.15) brightness(1.04);
+  animation: dock-blob-bounce 560ms var(--ease-spring);
 }
 .dock-liquid-blob::after {
   content: "";
@@ -1997,6 +2032,100 @@ html[data-palette="lilac"] {
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), transparent);
   opacity: 0.85;
+}
+
+@keyframes dock-blob-bounce {
+  0% {
+    filter: saturate(1) brightness(1);
+    box-shadow:
+      0 4px 16px rgba(37, 99, 235, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(59, 130, 246, 0.12);
+  }
+  35% {
+    filter: saturate(1.2) brightness(1.06);
+    box-shadow:
+      0 8px 22px rgba(37, 99, 235, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(59, 130, 246, 0.18);
+  }
+  100% {
+    filter: saturate(1) brightness(1);
+    box-shadow:
+      0 4px 16px rgba(37, 99, 235, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(59, 130, 246, 0.12);
+  }
+}
+
+.liquid-dock .nav-item {
+  transition:
+    transform 420ms var(--ease-spring),
+    color var(--dur-med) ease,
+    background var(--dur-med) var(--ease-soft);
+}
+.liquid-dock .nav-item .nav-icon {
+  transition: transform 480ms var(--ease-spring);
+  display: inline-flex;
+}
+.liquid-dock .nav-item.active .nav-icon {
+  transform: scale(1.12);
+}
+.liquid-dock .nav-item--pop .nav-icon {
+  animation: dock-icon-pop 520ms var(--ease-spring);
+}
+.liquid-dock .nav-item:active {
+  transform: scale(0.92);
+}
+
+@keyframes dock-icon-pop {
+  0% { transform: scale(0.86); }
+  55% { transform: scale(1.18); }
+  100% { transform: scale(1.12); }
+}
+
+/* Compact 预算与汇率 bar */
+.bfx {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bfx-label {
+  margin: 0;
+}
+.bfx-stats {
+  margin-bottom: 0;
+}
+.bfx-budget-inputs {
+  margin-bottom: 2px;
+}
+.bfx-fx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 4px;
+}
+.bfx-mode-row {
+  flex: 1;
+  min-width: 0;
+}
+.bfx-hint {
+  margin: 0;
+}
+.bfx-adjust {
+  margin-top: 2px;
+  padding: 10px;
+  border-radius: var(--radius-soft);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.45),
+    rgba(239, 246, 255, 0.28)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.bfx-pref-row {
+  margin-bottom: 0;
 }
 
 /* FX rates grid on 记账顶栏 */
@@ -2025,6 +2154,15 @@ html[data-palette="lilac"] {
   .dock-liquid-blob {
     transition: none !important;
     filter: none !important;
+    animation: none !important;
+  }
+  .dock-liquid-blob--bump,
+  .liquid-dock .nav-item--pop .nav-icon,
+  .liquid-dock .nav-item:active,
+  .liquid-dock .nav-item .nav-icon {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
   }
   html[data-bg-motion="dynamic"] body::before,
   html[data-bg-motion="dynamic"] body::after {

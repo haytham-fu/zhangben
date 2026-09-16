@@ -38,6 +38,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   const [categoryId, setCategoryId] = useState('food');
   const [note, setNote] = useState('');
   const [isSpecial, setIsSpecial] = useState(false);
+  const [isMonthly, setIsMonthly] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('other');
   const [walletId, setWalletId] = useState<string | null>(null);
   const [batchText, setBatchText] = useState('');
@@ -47,6 +48,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
 
   const selected = categories.find((c) => c.id === categoryId);
   const bucket: Bucket = selected?.bucket ?? 'basic';
+
+  useEffect(() => {
+    if (type !== 'expense' || kind !== 'normal') return;
+    if (categoryId === 'membership') setIsMonthly(true);
+  }, [categoryId, type, kind]);
 
   const expenseCats = useMemo(
     () => categories.filter((c) => !c.id.startsWith('income_') && c.id !== 'octopus_topup'),
@@ -106,6 +112,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setAmount('');
     setNote('');
     setIsSpecial(false);
+    setIsMonthly(false);
     setDate(todayStr);
     setCurrency('RMB');
     setPaymentMethod('other');
@@ -123,6 +130,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setAmount(prefill?.amount ?? '');
     setNote(prefill?.note ?? '');
     setIsSpecial(false);
+    setIsMonthly(false);
     setDate(todayStr);
     setWalletId(null);
   }
@@ -140,8 +148,13 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       alert('请输入有效金额');
       return;
     }
-    const cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
+    let cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
     if (!cat) return;
+    const monthly = kind !== 'topup' && type === 'expense' && isMonthly;
+    if (monthly) {
+      const m = categories.find((c) => c.id === 'membership');
+      if (m) cat = m;
+    }
     const pay: PaymentMethod =
       kind === 'topup' ? 'octopus' : type === 'expense' ? paymentMethod : 'none';
     const cur: Currency = kind === 'topup' ? 'HKD' : currency;
@@ -161,9 +174,10 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       amount: n,
       currency: cur,
       categoryId: cat.id,
-      bucket: cat.bucket,
+      bucket: monthly ? 'special' : cat.bucket,
       note,
       isSpecial: kind === 'topup' ? false : isSpecial,
+      isMonthly: monthly,
       paymentMethod: pay,
       rate: resolved.rate,
       walletId: kind === 'topup' || type === 'income' ? null : walletId,
@@ -260,11 +274,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             </div>
             <div className="add-hero-actions">
               <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={() => startExpenseWizard()}>
-                记账
+                支出
               </button>
               <button
                 type="button"
-                className="btn btn-secondary btn-block"
+                className="btn btn-primary btn-block add-hero-btn"
                 onClick={() => {
                   setMode('income');
                   setType('income');
@@ -339,6 +353,30 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   aria-label="特例"
                 />
               </div>
+              <div className="toggle-row">
+                <span style={{ fontSize: '0.85rem' }}>
+                  月度支出（计入专项）
+                </span>
+                <button
+                  type="button"
+                  className={`toggle ${isMonthly ? 'on' : ''}`}
+                  onClick={() => {
+                    setIsMonthly((v) => {
+                      const next = !v;
+                      if (next) {
+                        setCategoryId('membership');
+                      }
+                      return next;
+                    });
+                  }}
+                  aria-label="月度支出"
+                />
+              </div>
+              {isMonthly && (
+                <p className="hint" style={{ marginTop: -4 }}>
+                  已标为月度支出，分类「月度支出」· 专项桶，不拆入日计划。
+                </p>
+              )}
               <div className="field">
                 <label>备注</label>
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />

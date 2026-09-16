@@ -77,6 +77,8 @@ export interface Transaction {
   bucket: Bucket;
   note: string;
   isSpecial: boolean; // 请客 etc.
+  /** Monthly recurring expense (membership-like); usually 专项 */
+  isMonthly: boolean;
   paymentMethod: PaymentMethod;
   /** Optional 小荷包 link */
   walletId?: string | null;
@@ -103,8 +105,6 @@ export interface Settings {
   defaultSatMode: SatMode;
   /** Per-date sat mode overrides: YYYY-MM-DD -> play|stay */
   satModeOverrides: Record<string, SatMode>;
-  musicMembershipHkd: number;
-  musicMembershipEnabled: boolean;
   includeSpecialInAdvice: boolean;
   /** When true: daily plan vs actual, calendar remaining, plan-based advice */
   dailyPlanCompareEnabled: boolean;

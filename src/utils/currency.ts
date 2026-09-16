@@ -25,17 +25,17 @@ export const FOREIGN_CURRENCIES: ForeignCurrency[] = [
 
 export const CURRENCY_META: Record<
   Currency,
-  { label: string; short: string; symbol: string; apiCode: string }
+  { label: string; zh: string; short: string; symbol: string; apiCode: string }
 > = {
-  RMB: { label: '人民币 RMB', short: 'RMB', symbol: '¥', apiCode: 'CNY' },
-  HKD: { label: '港币 HKD', short: 'HKD', symbol: 'HK$', apiCode: 'HKD' },
-  USD: { label: '美元 USD', short: 'USD', symbol: '$', apiCode: 'USD' },
-  EUR: { label: '欧元 EUR', short: 'EUR', symbol: '€', apiCode: 'EUR' },
-  JPY: { label: '日元 JPY', short: 'JPY', symbol: '¥', apiCode: 'JPY' },
-  GBP: { label: '英镑 GBP', short: 'GBP', symbol: '£', apiCode: 'GBP' },
-  TWD: { label: '新台币 TWD', short: 'TWD', symbol: 'NT$', apiCode: 'TWD' },
-  MOP: { label: '澳门币 MOP', short: 'MOP', symbol: 'MOP$', apiCode: 'MOP' },
-  SGD: { label: '新加坡元 SGD', short: 'SGD', symbol: 'S$', apiCode: 'SGD' },
+  RMB: { label: '人民币 RMB', zh: '人民币', short: 'RMB', symbol: '¥', apiCode: 'CNY' },
+  HKD: { label: '港币 HKD', zh: '港币', short: 'HKD', symbol: 'HK$', apiCode: 'HKD' },
+  USD: { label: '美元 USD', zh: '美元', short: 'USD', symbol: '$', apiCode: 'USD' },
+  EUR: { label: '欧元 EUR', zh: '欧元', short: 'EUR', symbol: '€', apiCode: 'EUR' },
+  JPY: { label: '日元 JPY', zh: '日元', short: 'JPY', symbol: '¥', apiCode: 'JPY' },
+  GBP: { label: '英镑 GBP', zh: '英镑', short: 'GBP', symbol: '£', apiCode: 'GBP' },
+  TWD: { label: '新台币 TWD', zh: '新台币', short: 'TWD', symbol: 'NT$', apiCode: 'TWD' },
+  MOP: { label: '澳门币 MOP', zh: '澳门币', short: 'MOP', symbol: 'MOP$', apiCode: 'MOP' },
+  SGD: { label: '新加坡元 SGD', zh: '新加坡元', short: 'SGD', symbol: 'S$', apiCode: 'SGD' },
 };
 
 export const DEFAULT_FIXED_RATES: Record<ForeignCurrency, number> = {

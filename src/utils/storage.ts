@@ -23,10 +23,15 @@ function normalizeTransactions(list: unknown): Transaction[] {
   return list.map((t) => {
     const tx = t as Transaction & { currency?: string };
     const currency = isCurrency(tx.currency) ? tx.currency : 'RMB';
+    const legacyMonthly =
+      Boolean((tx as { isMonthly?: boolean }).isMonthly) ||
+      (tx.categoryId === 'membership' && Boolean(tx.note?.includes('音乐会员自动')));
     return {
       ...tx,
       currency,
       walletId: tx.walletId ?? null,
+      isMonthly: legacyMonthly,
+      isSpecial: Boolean(tx.isSpecial),
     };
   });
 }
@@ -85,8 +90,13 @@ export function normalizeSettings(raw: unknown): Settings {
     fixedRates: _fr,
     liveRates: _lr,
     preferredCurrencies: _pc,
+    musicMembershipHkd: _mmh,
+    musicMembershipEnabled: _mme,
     ...rest
-  } = partial;
+  } = partial as typeof partial & {
+    musicMembershipHkd?: number;
+    musicMembershipEnabled?: boolean;
+  };
 
   return {
     ...DEFAULT_SETTINGS,
@@ -100,15 +110,20 @@ export function normalizeSettings(raw: unknown): Settings {
   };
 }
 
+function normalizeCategories(list: unknown): Category[] {
+  const base =
+    Array.isArray(list) && list.length > 0 ? (list as Category[]) : [...DEFAULT_CATEGORIES];
+  return base.map((c) =>
+    c.id === 'membership' ? { ...c, name: '月度支出', icon: c.icon === '🎵' ? '📅' : c.icon || '📅' } : c,
+  );
+}
+
 export function loadState(): AppState {
   const data = safeParse<Partial<AppState>>(localStorage.getItem(STORAGE_KEY));
   return {
     settings: normalizeSettings(data?.settings),
     transactions: normalizeTransactions(data?.transactions),
-    categories:
-      Array.isArray(data?.categories) && data!.categories!.length > 0
-        ? data!.categories!
-        : DEFAULT_CATEGORIES,
+    categories: normalizeCategories(data?.categories),
     wallets: data?.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
   };
 }
@@ -126,9 +141,7 @@ export function importJson(raw: string): AppState {
   return {
     settings: normalizeSettings(data.settings),
     transactions: normalizeTransactions(data.transactions),
-    categories: Array.isArray(data.categories)
-      ? (data.categories as Category[])
-      : DEFAULT_CATEGORIES,
+    categories: normalizeCategories(data.categories),
     wallets: data.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
   };
 }

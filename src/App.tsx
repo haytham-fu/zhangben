@@ -20,12 +20,6 @@ export default function App() {
   );
 
   useEffect(() => {
-    store.ensureMusicMembership(store.currentYm);
-    // only on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     const prefill = consumeDeepLinkFromLocation();
     if (!prefill) return;
     setDeepLink(prefill);

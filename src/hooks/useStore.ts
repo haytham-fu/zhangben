@@ -28,6 +28,7 @@ export interface AddTxInput {
   bucket: Bucket;
   note?: string;
   isSpecial?: boolean;
+  isMonthly?: boolean;
   paymentMethod?: PaymentMethod;
   /** Override conversion rate (e.g. live FX); otherwise settings rate */
   rate?: number;
@@ -75,6 +76,7 @@ export function useStore() {
         bucket: input.bucket,
         note: input.note ?? '',
         isSpecial: input.isSpecial ?? false,
+        isMonthly: input.isMonthly ?? false,
         paymentMethod: input.paymentMethod ?? 'none',
         walletId: input.walletId ?? null,
         createdAt: new Date().toISOString(),
@@ -142,40 +144,6 @@ export function useStore() {
     }));
   }, []);
 
-  const ensureMusicMembership = useCallback((ym?: string) => {
-    setState((s) => {
-      if (!s.settings.musicMembershipEnabled) return s;
-      const key = ym ?? monthKey(new Date());
-      const already = s.transactions.some(
-        (t) =>
-          t.categoryId === 'membership' &&
-          t.date.startsWith(key) &&
-          t.note.includes('音乐会员自动'),
-      );
-      if (already) return s;
-      const amount = s.settings.musicMembershipHkd;
-      const rate = getRate('HKD', s.settings);
-      const amountRmb = Math.round(amount * rate * 100) / 100;
-      const tx: Transaction = {
-        id: uuid(),
-        type: 'expense',
-        kind: 'normal',
-        date: `${key}-01`,
-        amount,
-        currency: 'HKD',
-        rate,
-        amountRmb,
-        categoryId: 'membership',
-        bucket: 'special',
-        note: '音乐会员自动·月初',
-        isSpecial: false,
-        paymentMethod: 'none',
-        walletId: null,
-        createdAt: new Date().toISOString(),
-      };
-      return { ...s, transactions: [tx, ...s.transactions] };
-    });
-  }, []);
 
   const replaceState = useCallback((next: AppState) => setState(next), []);
 
@@ -215,7 +183,6 @@ export function useStore() {
     addWallet,
     updateWallet,
     removeWallet,
-    ensureMusicMembership,
     replaceState,
     resetAll,
   };
