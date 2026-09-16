@@ -15,6 +15,8 @@ export type PaymentMethod =
 
 export type SatMode = 'play' | 'stay';
 
+export type FxRateMode = 'live' | 'fixed';
+
 /** Top-up / balance-only: does not count toward budget spending */
 export type TxKind = 'normal' | 'topup';
 
@@ -68,6 +70,14 @@ export interface Settings {
   musicMembershipHkd: number;
   musicMembershipEnabled: boolean;
   includeSpecialInAdvice: boolean;
+  /** When true: daily plan vs actual, calendar remaining, plan-based advice */
+  dailyPlanCompareEnabled: boolean;
+  /** live = fetch market rate; fixed = use hkdRate/usdRate */
+  fxRateMode: FxRateMode;
+  /** Last successful live rates (RMB per 1 foreign); used as cache / display */
+  liveHkdRate: number | null;
+  liveUsdRate: number | null;
+  liveRatesUpdatedAt: string | null;
   themeColor: string;
 }
 

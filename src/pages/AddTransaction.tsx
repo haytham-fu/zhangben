@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { IconAdd, IconPayment } from '../components/CuteIcons';
 import { PaymentPicker } from '../components/PaymentPicker';
 import type { Store } from '../hooks/useStore';
 import type { Bucket, Currency, PaymentMethod, TxKind, TxType } from '../types';
-import { formatRmb, getRate } from '../utils/currency';
+import { formatRmb, toRmbWithRate } from '../utils/currency';
+import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
+import { PAYMENT_LABEL } from '../utils/payment';
 import { OcrImport } from './OcrImport';
 
 interface Props {
@@ -11,11 +14,13 @@ interface Props {
   onDone: () => void;
 }
 
-type Mode = 'ocr' | 'manual' | 'batch';
+type Mode = 'hub' | 'wizard' | 'ocr' | 'income' | 'topup' | 'batch';
+type WizardStep = 'category' | 'payment' | 'details';
 
 export function AddTransaction({ store, onDone }: Props) {
-  const { categories, settings, todayStr, addTransaction } = store;
-  const [mode, setMode] = useState<Mode>('ocr');
+  const { categories, settings, todayStr, addTransaction, updateSettings } = store;
+  const [mode, setMode] = useState<Mode>('hub');
+  const [wizardStep, setWizardStep] = useState<WizardStep>('category');
   const [type, setType] = useState<TxType>('expense');
   const [kind, setKind] = useState<TxKind>('normal');
   const [date, setDate] = useState(todayStr);
@@ -26,29 +31,91 @@ export function AddTransaction({ store, onDone }: Props) {
   const [isSpecial, setIsSpecial] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('other');
   const [batchText, setBatchText] = useState('');
+  const [rateNote, setRateNote] = useState('');
+  const [resolvedRate, setResolvedRate] = useState(1);
+  const [rateLoading, setRateLoading] = useState(false);
 
   const selected = categories.find((c) => c.id === categoryId);
   const bucket: Bucket = selected?.bucket ?? 'basic';
-  const showPayment = type === 'expense' && (selected?.allowPayment || kind === 'topup');
+
+  const expenseCats = useMemo(
+    () => categories.filter((c) => !c.id.startsWith('income_') && c.id !== 'octopus_topup'),
+    [categories],
+  );
+
+  const incomeCats = useMemo(
+    () => categories.filter((c) => c.id.startsWith('income_') || c.id === 'other_basic'),
+    [categories],
+  );
 
   const filteredCats = useMemo(() => {
-    if (type === 'income') {
-      return categories.filter((c) => c.id.startsWith('income_') || c.id === 'other_basic');
-    }
-    if (kind === 'topup') {
-      return categories.filter((c) => c.id === 'octopus_topup');
-    }
-    return categories.filter((c) => !c.id.startsWith('income_') && c.id !== 'octopus_topup');
-  }, [categories, type, kind]);
+    if (type === 'income') return incomeCats;
+    if (kind === 'topup') return categories.filter((c) => c.id === 'octopus_topup');
+    return expenseCats;
+  }, [categories, type, kind, expenseCats, incomeCats]);
+
+  const activeCurrency: Currency = kind === 'topup' ? 'HKD' : currency;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRateLoading(true);
+      try {
+        const r = await resolveRate(activeCurrency, settings);
+        if (cancelled) return;
+        setResolvedRate(r.rate);
+        setRateNote(r.note);
+        if (r.source === 'live' && r.fetchedAt && settings.fxRateMode === 'live') {
+          // persist cache quietly when fresh live data
+          try {
+            const bundle = await fetchLiveRates();
+            if (!cancelled) {
+              updateSettings(applyLiveBundleToSettings(bundle));
+            }
+          } catch {
+            /* already have resolved rate */
+          }
+        }
+      } finally {
+        if (!cancelled) setRateLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCurrency, settings.fxRateMode, settings.hkdRate, settings.usdRate, settings.liveHkdRate, settings.liveUsdRate, kind]);
 
   const previewRmb = (() => {
     const n = parseFloat(amount);
     if (Number.isNaN(n)) return 0;
-    const cur = kind === 'topup' ? 'HKD' : currency;
-    return Math.round(n * getRate(cur, settings) * 100) / 100;
+    return toRmbWithRate(n, resolvedRate);
   })();
 
-  function submitSingle() {
+  function resetForm() {
+    setAmount('');
+    setNote('');
+    setIsSpecial(false);
+    setDate(todayStr);
+    setCurrency('RMB');
+    setPaymentMethod('other');
+  }
+
+  function startExpenseWizard() {
+    setMode('wizard');
+    setWizardStep('category');
+    setType('expense');
+    setKind('normal');
+    setCategoryId('food');
+    setPaymentMethod('other');
+    setCurrency('RMB');
+    setAmount('');
+    setNote('');
+    setIsSpecial(false);
+    setDate(todayStr);
+  }
+
+  async function submitSingle() {
     const n = parseFloat(amount);
     if (Number.isNaN(n) || n <= 0) {
       alert('请输入有效金额');
@@ -57,26 +124,35 @@ export function AddTransaction({ store, onDone }: Props) {
     const cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
     if (!cat) return;
     const pay: PaymentMethod =
-      kind === 'topup' ? 'octopus' : showPayment ? paymentMethod : 'none';
+      kind === 'topup' ? 'octopus' : type === 'expense' ? paymentMethod : 'none';
+    const cur: Currency = kind === 'topup' ? 'HKD' : currency;
+    const resolved = await resolveRate(cur, settings);
+    if (resolved.source === 'live' && resolved.fetchedAt) {
+      try {
+        const bundle = await fetchLiveRates();
+        updateSettings(applyLiveBundleToSettings(bundle));
+      } catch {
+        /* ignore */
+      }
+    }
     addTransaction({
       type: kind === 'topup' ? 'expense' : type,
       kind,
       date,
       amount: n,
-      currency: kind === 'topup' ? 'HKD' : currency,
+      currency: cur,
       categoryId: cat.id,
       bucket: cat.bucket,
       note,
       isSpecial: kind === 'topup' ? false : isSpecial,
       paymentMethod: pay,
+      rate: resolved.rate,
     });
-    setAmount('');
-    setNote('');
-    setIsSpecial(false);
+    resetForm();
     onDone();
   }
 
-  function submitBatch() {
+  async function submitBatch() {
     const lines = batchText
       .split(/\n/)
       .map((l) => l.trim())
@@ -84,6 +160,11 @@ export function AddTransaction({ store, onDone }: Props) {
     if (lines.length === 0) {
       alert('请粘贴至少一行');
       return;
+    }
+    const resolved = await resolveRate('HKD', settings);
+    const batchRate = resolved.rate;
+    if (resolved.source === 'fallback') {
+      /* keep going with fallback note */
     }
     let ok = 0;
     for (const line of lines) {
@@ -118,6 +199,7 @@ export function AddTransaction({ store, onDone }: Props) {
           bucket: 'basic',
           note: nnote || '八达通充值',
           paymentMethod: 'octopus',
+          rate: batchRate,
         });
         ok++;
         continue;
@@ -132,6 +214,7 @@ export function AddTransaction({ store, onDone }: Props) {
         bucket: 'basic',
         note: nnote || '八达通',
         paymentMethod: 'octopus',
+        rate: batchRate,
       });
       ok++;
     }
@@ -142,65 +225,261 @@ export function AddTransaction({ store, onDone }: Props) {
 
   if (mode === 'ocr') {
     return (
-      <OcrImport
-        store={store}
-        onDone={onDone}
-        onManual={() => setMode('manual')}
-      />
+      <OcrImport store={store} onDone={onDone} onManual={() => setMode('hub')} />
+    );
+  }
+
+  if (mode === 'hub') {
+    return (
+      <>
+        <GlassCard title="记账">
+          <div className="add-hero">
+            <div className="add-hero-icon" aria-hidden>
+              <IconAdd size={56} />
+            </div>
+            <p className="add-hero-text">先选支出类型，再选扣款方法，然后填金额</p>
+            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={startExpenseWizard}>
+              点记账
+            </button>
+          </div>
+        </GlassCard>
+
+        <GlassCard title="其他方式">
+          <div className="add-alt-grid">
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => {
+                setMode('income');
+                setType('income');
+                setKind('normal');
+                setCategoryId('income_aa');
+              }}
+            >
+              记收入
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => {
+                setMode('topup');
+                setKind('topup');
+                setType('expense');
+                setCurrency('HKD');
+                setCategoryId('octopus_topup');
+                setPaymentMethod('octopus');
+              }}
+            >
+              八达通充值
+            </button>
+            <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('ocr')}>
+              从截图导入
+            </button>
+            <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('batch')}>
+              文本批量导入
+            </button>
+          </div>
+          <p className="hint section-gap">截图识别与批量粘贴为备用；日常请用上方「点记账」。</p>
+        </GlassCard>
+      </>
+    );
+  }
+
+  if (mode === 'wizard') {
+    return (
+      <>
+        <GlassCard title="记一笔支出">
+          <div className="wizard-steps" aria-label="记账步骤">
+            <span className={`wizard-dot ${wizardStep === 'category' ? 'on' : 'done'}`}>1 类型</span>
+            <span className="wizard-sep">→</span>
+            <span
+              className={`wizard-dot ${wizardStep === 'payment' ? 'on' : wizardStep === 'details' ? 'done' : ''}`}
+            >
+              2 扣款
+            </span>
+            <span className="wizard-sep">→</span>
+            <span className={`wizard-dot ${wizardStep === 'details' ? 'on' : ''}`}>3 金额</span>
+          </div>
+
+          {wizardStep === 'details' && selected && (
+            <div className="wizard-summary section-gap">
+              <button type="button" className="chip chip-with-icon" onClick={() => setWizardStep('category')}>
+                <span className="emoji-bubble">{selected.icon}</span>
+                {selected.name}
+              </button>
+              <button type="button" className="chip chip-with-icon" onClick={() => setWizardStep('payment')}>
+                <IconPayment method={paymentMethod} size={18} />
+                {PAYMENT_LABEL[paymentMethod]}
+              </button>
+            </div>
+          )}
+
+          {wizardStep === 'details' && (
+            <>
+              <div className="field section-gap">
+                <label>日期</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className="row-2">
+                <div className="field">
+                  <label>金额</label>
+                  <input
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="field">
+                  <label>币种</label>
+                  <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+                    <option value="RMB">人民币 RMB</option>
+                    <option value="HKD">港币 HKD</option>
+                    <option value="USD">美元 USD</option>
+                  </select>
+                </div>
+              </div>
+              <p className="hint" style={{ marginTop: -6, marginBottom: 10 }}>
+                ≈ {formatRmb(previewRmb)} · 预算桶：{bucket === 'special' ? '专项 1500' : '基础 3500'}
+                {rateLoading ? ' · 汇率刷新中…' : rateNote ? ` · ${rateNote}` : ''}
+              </p>
+              <div className="toggle-row">
+                <span style={{ fontSize: '0.85rem' }}>特例（请客等）</span>
+                <button
+                  type="button"
+                  className={`toggle ${isSpecial ? 'on' : ''}`}
+                  onClick={() => setIsSpecial((v) => !v)}
+                  aria-label="特例"
+                />
+              </div>
+              <div className="field">
+                <label>备注</label>
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />
+              </div>
+              <button type="button" className="btn btn-primary btn-block" onClick={submitSingle}>
+                保存
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-block section-gap"
+                onClick={() => setWizardStep('payment')}
+              >
+                返回改扣款方法
+              </button>
+            </>
+          )}
+
+          <button type="button" className="btn btn-secondary btn-block section-gap" onClick={() => setMode('hub')}>
+            返回
+          </button>
+        </GlassCard>
+
+        {wizardStep === 'category' && (
+          <div className="modal-backdrop" role="presentation">
+            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择支出类型">
+              <div className="modal-handle" />
+              <h2 className="glass-title">选择支出类型</h2>
+              <p className="hint" style={{ marginBottom: 12 }}>
+                基础 3500 / 专项 1500 · 点选后进入扣款方法
+              </p>
+              <p className="sheet-section-label">基础生活</p>
+              <div className="cat-grid">
+                {expenseCats
+                  .filter((c) => c.bucket === 'basic')
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setCategoryId(c.id);
+                        setWizardStep('payment');
+                      }}
+                    >
+                      <span className="emoji emoji-bubble">{c.icon}</span>
+                      {c.name}
+                    </button>
+                  ))}
+              </div>
+              <p className="sheet-section-label section-gap">专项</p>
+              <div className="cat-grid">
+                {expenseCats
+                  .filter((c) => c.bucket === 'special')
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setCategoryId(c.id);
+                        setWizardStep('payment');
+                      }}
+                    >
+                      <span className="emoji emoji-bubble">{c.icon}</span>
+                      {c.name}
+                    </button>
+                  ))}
+              </div>
+              <button type="button" className="btn btn-secondary btn-block section-gap" onClick={() => setMode('hub')}>
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+
+        {wizardStep === 'payment' && (
+          <div className="modal-backdrop" role="presentation">
+            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择扣款方法">
+              <div className="modal-handle" />
+              <h2 className="glass-title">选择扣款方法</h2>
+              <p className="hint" style={{ marginBottom: 8 }}>
+                已选：{selected?.icon} {selected?.name}（{bucket === 'special' ? '专项' : '基础'}）
+              </p>
+              <div className="pay-sheet-grid">
+                {(['octopus', 'alipay', 'wechat', 'bank', 'credit', 'other'] as PaymentMethod[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`pay-sheet-btn ${paymentMethod === m ? 'active' : ''}`}
+                    onClick={() => {
+                      setPaymentMethod(m);
+                      if (m === 'octopus') setCurrency('HKD');
+                      else setCurrency('RMB');
+                      setWizardStep('details');
+                    }}
+                  >
+                    <IconPayment method={m} size={28} />
+                    <span>{PAYMENT_LABEL[m]}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block section-gap"
+                onClick={() => setWizardStep('category')}
+              >
+                返回改类型
+              </button>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
   return (
     <>
-      <GlassCard title="手动记一笔">
+      <GlassCard title={mode === 'income' ? '记收入' : mode === 'topup' ? '八达通充值' : '文本批量'}>
         <div className="chip-row" style={{ marginBottom: 12 }}>
+          <button type="button" className="chip" onClick={() => setMode('hub')}>
+            ← 返回
+          </button>
+          <button type="button" className="chip" onClick={startExpenseWizard}>
+            点记账
+          </button>
           <button type="button" className="chip" onClick={() => setMode('ocr')}>
-            📷 截图识别
-          </button>
-          <button
-            type="button"
-            className={`chip ${mode === 'manual' && type === 'expense' && kind === 'normal' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('manual');
-              setType('expense');
-              setKind('normal');
-              setCategoryId('food');
-            }}
-          >
-            支出
-          </button>
-          <button
-            type="button"
-            className={`chip ${type === 'income' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('manual');
-              setType('income');
-              setKind('normal');
-              setCategoryId('income_aa');
-            }}
-          >
-            收入
-          </button>
-          <button
-            type="button"
-            className={`chip ${kind === 'topup' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('manual');
-              setKind('topup');
-              setType('expense');
-              setCurrency('HKD');
-              setCategoryId('octopus_topup');
-              setPaymentMethod('octopus');
-            }}
-          >
-            充值
-          </button>
-          <button
-            type="button"
-            className={`chip ${mode === 'batch' ? 'active' : ''}`}
-            onClick={() => setMode('batch')}
-          >
-            文本批量
+            从截图导入
           </button>
         </div>
 
@@ -257,48 +536,33 @@ export function AddTransaction({ store, onDone }: Props) {
             <p className="hint" style={{ marginTop: -6, marginBottom: 10 }}>
               ≈ {formatRmb(previewRmb)}
               {kind === 'topup' && '（充值不计预算支出）'}
+              {rateLoading ? ' · 汇率刷新中…' : rateNote ? ` · ${rateNote}` : ''}
             </p>
 
-            <div className="field">
-              <label>分类</label>
-              <div className="cat-grid">
-                {filteredCats.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
-                    onClick={() => setCategoryId(c.id)}
-                  >
-                    <span className="emoji">{c.icon}</span>
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-              <p className="hint">预算桶：{bucket === 'special' ? '专项 1500' : '基础 3500'}</p>
-            </div>
-
-            {showPayment && (
+            {mode === 'income' && (
               <div className="field">
-                <label>支付方式</label>
-                <PaymentPicker
-                  value={kind === 'topup' ? 'octopus' : paymentMethod}
-                  onChange={(m) => {
-                    setPaymentMethod(m);
-                    if (m === 'octopus') setCurrency('HKD');
-                  }}
-                />
+                <label>分类</label>
+                <div className="cat-grid">
+                  {incomeCats.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`cat-btn ${categoryId === c.id ? 'active' : ''}`}
+                      onClick={() => setCategoryId(c.id)}
+                    >
+                      <span className="emoji emoji-bubble">{c.icon}</span>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {type === 'expense' && kind === 'normal' && (
-              <div className="toggle-row">
-                <span style={{ fontSize: '0.85rem' }}>特例（请客等）</span>
-                <button
-                  type="button"
-                  className={`toggle ${isSpecial ? 'on' : ''}`}
-                  onClick={() => setIsSpecial((v) => !v)}
-                  aria-label="特例"
-                />
+            {mode === 'topup' && (
+              <div className="field">
+                <label>支付方式</label>
+                <PaymentPicker value="octopus" onChange={() => setPaymentMethod('octopus')} />
+                <p className="hint">充值默认八达通，不计入预算支出</p>
               </div>
             )}
 

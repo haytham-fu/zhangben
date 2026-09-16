@@ -6,6 +6,7 @@ import type { Currency, PaymentMethod, TxKind, TxType } from '../types';
 import { recognizeImages } from '../utils/ocr';
 import { parseOcrText, type ParsedDraft } from '../utils/ocrParse';
 import { formatRmb, getRate } from '../utils/currency';
+import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
 
 type Phase = 'upload' | 'loading' | 'review' | 'done';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export function OcrImport({ store, onDone, onManual }: Props) {
-  const { categories, settings, todayStr, addTransaction } = store;
+  const { categories, settings, todayStr, addTransaction, updateSettings } = store;
   const inputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('upload');
   const [source, setSource] = useState<'octopus' | 'general'>('octopus');
@@ -100,13 +101,28 @@ export function OcrImport({ store, onDone, onManual }: Props) {
     setDrafts((list) => list.filter((d) => d.id !== id));
   }
 
-  function confirmImport() {
+  async function confirmImport() {
     const selected = drafts.filter((d) => d.selected && d.amount > 0);
     if (selected.length === 0) {
       alert('请至少勾选一条有效记录');
       return;
     }
+    const rateCache = new Map<string, number>();
     for (const d of selected) {
+      let rate = rateCache.get(d.currency);
+      if (rate == null) {
+        const resolved = await resolveRate(d.currency, settings);
+        rate = resolved.rate;
+        rateCache.set(d.currency, rate);
+        if (resolved.source === 'live' && resolved.fetchedAt) {
+          try {
+            const bundle = await fetchLiveRates();
+            updateSettings(applyLiveBundleToSettings(bundle));
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       addTransaction({
         type: d.type,
         kind: d.kind,
@@ -118,6 +134,7 @@ export function OcrImport({ store, onDone, onManual }: Props) {
         note: d.note,
         isSpecial: false,
         paymentMethod: d.kind === 'topup' ? 'octopus' : d.paymentMethod,
+        rate,
       });
     }
     setPhase('done');

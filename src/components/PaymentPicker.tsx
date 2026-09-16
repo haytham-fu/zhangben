@@ -1,5 +1,6 @@
 import type { PaymentMethod } from '../types';
 import { PAYMENT_OPTIONS } from '../utils/payment';
+import { IconPayment } from './CuteIcons';
 
 interface Props {
   value: PaymentMethod;
@@ -15,9 +16,10 @@ export function PaymentPicker({ value, onChange, compact }: Props) {
         <button
           key={o.id}
           type="button"
-          className={`chip ${value === o.id ? 'active' : ''} ${compact ? 'chip-sm' : ''}`}
+          className={`chip chip-with-icon ${value === o.id ? 'active' : ''} ${compact ? 'chip-sm' : ''}`}
           onClick={() => onChange(o.id)}
         >
+          <IconPayment method={o.id} size={compact ? 16 : 18} />
           {o.label}
         </button>
       ))}

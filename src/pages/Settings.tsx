@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import type { Store } from '../hooks/useStore';
 import { DEFAULT_SETTINGS } from '../utils/defaults';
+import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographic';
+import { applyLiveBundleToSettings, fetchLiveRates } from '../utils/fx';
 import { exportJson, importJson } from '../utils/storage';
 
 interface Props {
@@ -13,8 +15,12 @@ export function SettingsPage({ store }: Props) {
     store;
   const fileRef = useRef<HTMLInputElement>(null);
   const [planOpen, setPlanOpen] = useState(false);
+  const [fxBusy, setFxBusy] = useState(false);
+  const [fxMsg, setFxMsg] = useState('');
+  const [jpgBusy, setJpgBusy] = useState(false);
 
   const dp = settings.dailyPlan;
+  const planOn = settings.dailyPlanCompareEnabled !== false;
 
   function patchPlan(key: keyof typeof dp, value: string) {
     const n = parseFloat(value);
@@ -22,8 +28,51 @@ export function SettingsPage({ store }: Props) {
     updateSettings({ dailyPlan: { ...dp, [key]: n } });
   }
 
+  async function refreshLiveRates() {
+    setFxBusy(true);
+    setFxMsg('');
+    try {
+      const bundle = await fetchLiveRates();
+      updateSettings(applyLiveBundleToSettings(bundle));
+      setFxMsg(`已更新：1 HKD = ${bundle.hkd} RMB · 1 USD = ${bundle.usd} RMB`);
+    } catch {
+      setFxMsg('实时汇率获取失败，将继续使用固定/缓存汇率');
+    } finally {
+      setFxBusy(false);
+    }
+  }
+
+  async function exportJpg() {
+    setJpgBusy(true);
+    try {
+      const blob = await renderLedgerInfographic({ ym: currentYm, state });
+      downloadBlob(blob, `zhangben-${currentYm}.jpg`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '导出图片失败');
+    } finally {
+      setJpgBusy(false);
+    }
+  }
+
   return (
     <>
+      <GlassCard title="计划对照">
+        <div className="toggle-row">
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>计划生活费每天支出对照</div>
+            <p className="hint" style={{ margin: '4px 0 0' }}>
+              开启：日计划余缺、日历对照、节奏建议；关闭：简单记账汇总
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${planOn ? 'on' : ''}`}
+            aria-label="计划生活费每天支出对照"
+            onClick={() => updateSettings({ dailyPlanCompareEnabled: !planOn })}
+          />
+        </div>
+      </GlassCard>
+
       <GlassCard title="预算与汇率">
         <div className="row-2">
           <div className="field">
@@ -43,9 +92,57 @@ export function SettingsPage({ store }: Props) {
             />
           </div>
         </div>
+
+        <p className="sheet-section-label">汇率模式</p>
+        <div className="chip-row" style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            className={`chip ${settings.fxRateMode === 'live' ? 'active' : ''}`}
+            onClick={() => {
+              updateSettings({ fxRateMode: 'live' });
+              void refreshLiveRates();
+            }}
+          >
+            实时汇率
+          </button>
+          <button
+            type="button"
+            className={`chip ${settings.fxRateMode === 'fixed' ? 'active' : ''}`}
+            onClick={() => updateSettings({ fxRateMode: 'fixed' })}
+          >
+            固定汇率
+          </button>
+        </div>
+        {settings.fxRateMode === 'live' ? (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>
+              记账外币时拉取市场汇率并写入该笔；失败则回退固定/缓存并提示。
+            </p>
+            <p className="hint">
+              缓存：1 HKD = {settings.liveHkdRate ?? '—'} · 1 USD = {settings.liveUsdRate ?? '—'}
+              {settings.liveRatesUpdatedAt
+                ? ` · 更新于 ${settings.liveRatesUpdatedAt.slice(0, 16).replace('T', ' ')}`
+                : ''}
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              disabled={fxBusy}
+              onClick={() => void refreshLiveRates()}
+            >
+              {fxBusy ? '刷新中…' : '立即刷新实时汇率'}
+            </button>
+            {fxMsg && <p className="hint section-gap">{fxMsg}</p>}
+            <p className="hint section-gap">下方固定汇率仍作离线回退备用。</p>
+          </>
+        ) : (
+          <p className="hint" style={{ marginTop: 0 }}>
+            使用下方可编辑的近似固定汇率；每笔保存当时汇率。
+          </p>
+        )}
         <div className="row-2">
           <div className="field">
-            <label>1 HKD = ? RMB</label>
+            <label>1 HKD = ? RMB（固定）</label>
             <input
               type="number"
               step="0.01"
@@ -54,7 +151,7 @@ export function SettingsPage({ store }: Props) {
             />
           </div>
           <div className="field">
-            <label>1 USD = ? RMB</label>
+            <label>1 USD = ? RMB（固定）</label>
             <input
               type="number"
               step="0.01"
@@ -63,17 +160,20 @@ export function SettingsPage({ store }: Props) {
             />
           </div>
         </div>
-        <p className="hint">默认 1 HKD = 0.86 RMB，可随时修改；新记账使用当时汇率并保存。</p>
       </GlassCard>
 
+      {planOn && (
       <GlassCard
-        title="日计划预算"
+        title="预算计划配置"
         action={
           <button type="button" className="btn btn-sm btn-secondary" onClick={() => setPlanOpen((v) => !v)}>
-            {planOpen ? '收起' : '编辑'}
+            {planOpen ? '收起' : '编辑日计划'}
           </button>
         }
       >
+        <p className="hint" style={{ marginTop: 0 }}>
+          上方「基础 / 专项」月预算与下方每日额度将用于总览、日历余缺与节奏建议。
+        </p>
         {!planOpen ? (
           <p className="hint" style={{ margin: 0 }}>
             一/三 {dp.mon} · 二 {dp.tue} · 四/五 {dp.thu} · 六玩 {dp.satPlay} / 不玩 {dp.satStay} · 日{' '}
@@ -158,6 +258,7 @@ export function SettingsPage({ store }: Props) {
           </>
         )}
       </GlassCard>
+      )}
 
       <GlassCard title="音乐会员（专项）">
         <div className="toggle-row">
@@ -200,6 +301,15 @@ export function SettingsPage({ store }: Props) {
         >
           导出备份 JSON
         </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-block section-gap"
+          disabled={jpgBusy}
+          onClick={() => void exportJpg()}
+        >
+          {jpgBusy ? '生成中…' : '导出本月速览 JPG'}
+        </button>
+        <p className="hint">JPG 信息图含本月支出/收入、预算进度与分类条，方便一图分享。</p>
         <button
           type="button"
           className="btn btn-secondary btn-block section-gap"

@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { EmptyState } from '../components/EmptyState';
+import { IconEmptyLedger } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
@@ -92,7 +94,7 @@ export function TransactionList({ store }: Props) {
           </div>
         </div>
         {list.length === 0 ? (
-          <p className="empty">本月暂无记录</p>
+          <EmptyState icon={<IconEmptyLedger />} title="本月暂无记录" hint="换个月份，或去记账补一笔" />
         ) : (
           <ul className="tx-list">
             {list.map((tx) => (

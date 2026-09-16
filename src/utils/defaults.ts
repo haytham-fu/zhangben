@@ -20,6 +20,11 @@ export const DEFAULT_SETTINGS: Settings = {
   musicMembershipHkd: 48,
   musicMembershipEnabled: true,
   includeSpecialInAdvice: true,
+  dailyPlanCompareEnabled: true,
+  fxRateMode: 'fixed',
+  liveHkdRate: null,
+  liveUsdRate: null,
+  liveRatesUpdatedAt: null,
   themeColor: '#3b82f6',
 };
 

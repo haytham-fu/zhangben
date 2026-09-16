@@ -12,7 +12,7 @@ import type {
   PaymentMethod,
   Bucket,
 } from '../types';
-import { getRate, toRmb } from '../utils/currency';
+import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
 import { loadState, saveState } from '../utils/storage';
 import { monthKey } from '../utils/budget';
 
@@ -27,6 +27,8 @@ export interface AddTxInput {
   note?: string;
   isSpecial?: boolean;
   paymentMethod?: PaymentMethod;
+  /** Override conversion rate (e.g. live FX); otherwise settings rate */
+  rate?: number;
 }
 
 export function useStore() {
@@ -52,8 +54,11 @@ export function useStore() {
 
   const addTransaction = useCallback((input: AddTxInput) => {
     setState((s) => {
-      const rate = getRate(input.currency, s.settings);
-      const amountRmb = toRmb(input.amount, input.currency, s.settings);
+      const rate = input.rate ?? getRate(input.currency, s.settings);
+      const amountRmb =
+        input.rate != null
+          ? toRmbWithRate(input.amount, input.rate)
+          : toRmb(input.amount, input.currency, s.settings);
       const tx: Transaction = {
         id: uuid(),
         type: input.type,
@@ -80,11 +85,12 @@ export function useStore() {
       transactions: s.transactions.map((t) => {
         if (t.id !== id) return t;
         const next = { ...t, ...patch };
-        if (patch.amount != null || patch.currency != null) {
+        if (patch.amount != null || patch.currency != null || patch.rate != null) {
           const currency = patch.currency ?? t.currency;
           const amount = patch.amount ?? t.amount;
-          next.rate = getRate(currency, s.settings);
-          next.amountRmb = toRmb(amount, currency, s.settings);
+          const rate = patch.rate ?? getRate(currency, s.settings);
+          next.rate = rate;
+          next.amountRmb = toRmbWithRate(amount, rate);
         }
         return next;
       }),
@@ -110,7 +116,7 @@ export function useStore() {
       );
       if (already) return s;
       const amount = s.settings.musicMembershipHkd;
-      const rate = s.settings.hkdRate;
+      const rate = getRate('HKD', s.settings);
       const amountRmb = Math.round(amount * rate * 100) / 100;
       const tx: Transaction = {
         id: uuid(),
