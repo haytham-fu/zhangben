@@ -40,6 +40,16 @@ export type BgMotion = 'static' | 'dynamic';
 /** Top-up / balance-only: does not count toward budget spending */
 export type TxKind = 'normal' | 'topup';
 
+/** 买菜品类 */
+export type GroceryKind =
+  | 'veg'
+  | 'meat'
+  | 'egg'
+  | 'staple'
+  | 'fruit'
+  | 'seasoning'
+  | 'custom';
+
 export interface Category {
   id: string;
   name: string;
@@ -64,6 +74,23 @@ export interface Wallet {
   createdAt: string;
 }
 
+/** 冰箱/食材库存（买菜后写入，做饭时扣减） */
+export interface PantryItem {
+  id: string;
+  name: string;
+  kind: GroceryKind;
+  /** 自己实际承担金额（RMB，AA 后） */
+  costRmb: number;
+  mealsTotal: number;
+  mealsLeft: number;
+  /** costRmb / mealsTotal */
+  costPerMeal: number;
+  boughtDate: string;
+  notes?: string;
+  /** 关联的买菜支出流水 id */
+  purchaseTxId?: string | null;
+}
+
 export interface Transaction {
   id: string;
   type: TxType;
@@ -83,6 +110,14 @@ export interface Transaction {
   /** Optional 小荷包 link */
   walletId?: string | null;
   createdAt: string;
+  /** 买菜支出：一次性购入多品 */
+  isGroceryPurchase?: boolean;
+  /** 本笔买菜创建的库存 id */
+  groceryLotIds?: string[];
+  /** 做饭时用到的库存 id */
+  pantryUseIds?: string[];
+  /** 从库存估算计入本餐的 RMB */
+  pantryCostRmb?: number;
 }
 
 export interface DailyPlan {
@@ -132,4 +167,6 @@ export interface AppState {
   transactions: Transaction[];
   categories: Category[];
   wallets: Wallet[];
+  /** 冰箱/食材库存 */
+  pantryItems: PantryItem[];
 }

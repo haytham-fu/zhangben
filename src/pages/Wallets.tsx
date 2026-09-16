@@ -1,3 +1,4 @@
+import { ModalPortal } from '../components/ModalPortal';
 import { useMemo, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { ProgressBar } from '../components/ProgressBar';
@@ -189,8 +190,9 @@ export function WalletsPage({ store }: Props) {
       </GlassCard>
 
       {adding && (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="新建小荷包">
+        <ModalPortal>
+        <div className="modal-backdrop" role="presentation" onClick={() => setAdding(false)}>
+          <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="新建小荷包" onClick={(e) => e.stopPropagation()}>
             <div className="modal-handle" />
             <h2 className="glass-title">新建小荷包</h2>
             <div className="field">
@@ -212,11 +214,13 @@ export function WalletsPage({ store }: Props) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {edit && (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="编辑小荷包">
+        <ModalPortal>
+        <div className="modal-backdrop" role="presentation" onClick={() => setEdit(null)}>
+          <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="编辑小荷包" onClick={(e) => e.stopPropagation()}>
             <div className="modal-handle" />
             <h2 className="glass-title">编辑小荷包</h2>
             <div className="field section-gap">
@@ -256,6 +260,7 @@ export function WalletsPage({ store }: Props) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );

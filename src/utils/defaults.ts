@@ -35,7 +35,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'transport', name: '交通', bucket: 'basic', icon: '🚇', allowOctopus: true, allowPayment: true },
   { id: 'laundry', name: '洗衣', bucket: 'basic', icon: '👕', allowOctopus: true, allowPayment: true },
   { id: 'ac', name: '空调', bucket: 'basic', icon: '❄️', allowOctopus: true, allowPayment: true },
-  { id: 'groceries', name: '买菜', bucket: 'basic', icon: '🥬', allowPayment: true },
+  { id: 'groceries', name: '买菜支出', bucket: 'basic', icon: '🥬', allowPayment: true },
   { id: 'membership', name: '月度支出', bucket: 'special', icon: '📅', allowPayment: true },
   { id: 'sundries', name: '日用品', bucket: 'special', icon: '🧴', allowPayment: true },
   { id: 'furniture', name: '家具电器', bucket: 'special', icon: '🛋️', allowPayment: true },

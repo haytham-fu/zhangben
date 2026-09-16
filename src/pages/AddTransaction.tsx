@@ -14,6 +14,7 @@ import {
 import type { DeepLinkAddPrefill } from '../utils/deepLink';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
+import { ModalPortal } from '../components/ModalPortal';
 import { OcrImport } from './OcrImport';
 
 interface Props {
@@ -427,8 +428,9 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
         </GlassCard>
 
         {wizardStep === 'category' && (
-          <div className="modal-backdrop" role="presentation">
-            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择支出类型">
+          <ModalPortal>
+          <div className="modal-backdrop" role="presentation" onClick={() => setMode('hub')}>
+            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择支出类型" onClick={(e) => e.stopPropagation()}>
               <div className="modal-handle" />
               <h2 className="glass-title">选择支出类型</h2>
               <p className="sheet-section-label">基础生活</p>
@@ -476,11 +478,13 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               </button>
             </div>
           </div>
+          </ModalPortal>
         )}
 
         {wizardStep === 'payment' && (
-          <div className="modal-backdrop" role="presentation">
-            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择扣款方法">
+          <ModalPortal>
+          <div className="modal-backdrop" role="presentation" onClick={() => setWizardStep('category')}>
+            <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择扣款方法" onClick={(e) => e.stopPropagation()}>
               <div className="modal-handle" />
               <h2 className="glass-title">选择扣款方法</h2>
               <p className="hint" style={{ marginBottom: 8 }}>
@@ -513,6 +517,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               </button>
             </div>
           </div>
+          </ModalPortal>
         )}
       </>
     );
