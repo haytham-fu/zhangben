@@ -1,4 +1,11 @@
-import type { Currency, Settings } from '../types';
+import type { Currency, ForeignCurrency, Settings } from '../types';
+import {
+  CURRENCY_META,
+  DEFAULT_FIXED_RATES,
+  FOREIGN_CURRENCIES,
+  getFixedRate,
+  isForeignCurrency,
+} from './currency';
 
 const CACHE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -12,33 +19,18 @@ export interface ResolvedRate {
   fetchedAt?: string;
 }
 
-interface LiveBundle {
-  hkd: number;
-  usd: number;
+export interface LiveBundle {
+  rates: Partial<Record<ForeignCurrency, number>>;
   fetchedAt: string;
 }
 
 let memCache: LiveBundle | null = null;
 
-function fixedRate(currency: Currency, settings: Settings): number {
-  if (currency === 'RMB') return 1;
-  if (currency === 'HKD') return settings.hkdRate;
-  return settings.usdRate;
-}
-
 function fromSettingsCache(settings: Settings): LiveBundle | null {
-  if (
-    settings.liveHkdRate != null &&
-    settings.liveUsdRate != null &&
-    settings.liveRatesUpdatedAt
-  ) {
-    return {
-      hkd: settings.liveHkdRate,
-      usd: settings.liveUsdRate,
-      fetchedAt: settings.liveRatesUpdatedAt,
-    };
-  }
-  return null;
+  const rates = settings.liveRates ?? {};
+  const keys = Object.keys(rates).filter(isForeignCurrency);
+  if (keys.length === 0 || !settings.liveRatesUpdatedAt) return null;
+  return { rates: { ...rates }, fetchedAt: settings.liveRatesUpdatedAt };
 }
 
 function isFresh(iso: string): boolean {
@@ -47,48 +39,64 @@ function isFresh(iso: string): boolean {
   return Date.now() - t < CACHE_MS;
 }
 
-/** Fetch HKD→CNY and USD→CNY from free public APIs (no key). */
+function roundRate(n: number): number {
+  return Math.round(n * 1000000) / 1000000;
+}
+
+/** Invert "foreign per 1 CNY" map into "RMB per 1 foreign". */
+function invertCnyMap(cnyPerForeignInverse: Record<string, number>): Partial<Record<ForeignCurrency, number>> {
+  const out: Partial<Record<ForeignCurrency, number>> = {};
+  for (const fc of FOREIGN_CURRENCIES) {
+    const api = CURRENCY_META[fc].apiCode.toLowerCase();
+    const upper = CURRENCY_META[fc].apiCode;
+    const perCny = cnyPerForeignInverse[api] ?? cnyPerForeignInverse[upper];
+    if (typeof perCny === 'number' && perCny > 0) {
+      out[fc] = roundRate(1 / perCny);
+    }
+  }
+  return out;
+}
+
+/** Fetch all supported foreign → RMB from free public APIs (no key). */
 export async function fetchLiveRates(): Promise<LiveBundle> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    // Primary: open.er-api.com (no key)
-    const [hkdRes, usdRes] = await Promise.all([
-      fetch('https://open.er-api.com/v6/latest/HKD', { signal: controller.signal }),
-      fetch('https://open.er-api.com/v6/latest/USD', { signal: controller.signal }),
-    ]);
-    if (!hkdRes.ok || !usdRes.ok) throw new Error('er-api http');
-    const hkdJson = (await hkdRes.json()) as { rates?: { CNY?: number } };
-    const usdJson = (await usdRes.json()) as { rates?: { CNY?: number } };
-    const hkd = hkdJson.rates?.CNY;
-    const usd = usdJson.rates?.CNY;
-    if (typeof hkd !== 'number' || typeof usd !== 'number') throw new Error('er-api parse');
+    // Primary: open.er-api.com CNY base → invert
+    const res = await fetch('https://open.er-api.com/v6/latest/CNY', {
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error('er-api http');
+    const json = (await res.json()) as { rates?: Record<string, number> };
+    if (!json.rates) throw new Error('er-api parse');
+    const rates = invertCnyMap(json.rates);
+    if (Object.keys(rates).length < 2) throw new Error('er-api sparse');
+    // Fill any missing with defaults so UI always has a number
+    for (const fc of FOREIGN_CURRENCIES) {
+      if (rates[fc] == null) rates[fc] = DEFAULT_FIXED_RATES[fc];
+    }
     const bundle: LiveBundle = {
-      hkd: Math.round(hkd * 10000) / 10000,
-      usd: Math.round(usd * 10000) / 10000,
+      rates,
       fetchedAt: new Date().toISOString(),
     };
     memCache = bundle;
     return bundle;
   } catch {
-    // Fallback CDN currency-api
-    const [hkdRes, usdRes] = await Promise.all([
-      fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/hkd.min.json', {
-        signal: controller.signal,
-      }),
-      fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json', {
-        signal: controller.signal,
-      }),
-    ]);
-    if (!hkdRes.ok || !usdRes.ok) throw new Error('cdn http');
-    const hkdJson = (await hkdRes.json()) as { hkd?: { cny?: number } };
-    const usdJson = (await usdRes.json()) as { usd?: { cny?: number } };
-    const hkd = hkdJson.hkd?.cny;
-    const usd = usdJson.usd?.cny;
-    if (typeof hkd !== 'number' || typeof usd !== 'number') throw new Error('cdn parse');
+    // Fallback CDN currency-api (CNY → foreign units)
+    const res = await fetch(
+      'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/cny.min.json',
+      { signal: controller.signal },
+    );
+    if (!res.ok) throw new Error('cdn http');
+    const json = (await res.json()) as { cny?: Record<string, number> };
+    if (!json.cny) throw new Error('cdn parse');
+    const rates = invertCnyMap(json.cny);
+    if (Object.keys(rates).length < 2) throw new Error('cdn sparse');
+    for (const fc of FOREIGN_CURRENCIES) {
+      if (rates[fc] == null) rates[fc] = DEFAULT_FIXED_RATES[fc];
+    }
     const bundle: LiveBundle = {
-      hkd: Math.round(hkd * 10000) / 10000,
-      usd: Math.round(usd * 10000) / 10000,
+      rates,
       fetchedAt: new Date().toISOString(),
     };
     memCache = bundle;
@@ -107,7 +115,7 @@ export async function resolveRate(
   }
 
   if (settings.fxRateMode !== 'live') {
-    const rate = fixedRate(currency, settings);
+    const rate = getFixedRate(currency, settings);
     return {
       rate,
       source: 'fixed',
@@ -115,7 +123,6 @@ export async function resolveRate(
     };
   }
 
-  // Live mode
   const cached =
     (memCache && isFresh(memCache.fetchedAt) && memCache) ||
     (() => {
@@ -128,7 +135,7 @@ export async function resolveRate(
   try {
     const bundle =
       cached && isFresh(cached.fetchedAt) ? cached : await fetchLiveRates();
-    const rate = currency === 'HKD' ? bundle.hkd : bundle.usd;
+    const rate = bundle.rates[currency] ?? getFixedRate(currency, settings);
     return {
       rate,
       source: 'live',
@@ -136,12 +143,9 @@ export async function resolveRate(
       fetchedAt: bundle.fetchedAt,
     };
   } catch {
-    const rate = cached
-      ? currency === 'HKD'
-        ? cached.hkd
-        : cached.usd
-      : fixedRate(currency, settings);
-    const usingCache = Boolean(cached);
+    const rate =
+      cached?.rates[currency] ?? getFixedRate(currency, settings);
+    const usingCache = cached?.rates[currency] != null;
     return {
       rate,
       source: 'fallback',
@@ -155,8 +159,18 @@ export async function resolveRate(
 
 export function applyLiveBundleToSettings(bundle: LiveBundle): Partial<Settings> {
   return {
-    liveHkdRate: bundle.hkd,
-    liveUsdRate: bundle.usd,
+    liveRates: { ...bundle.rates },
     liveRatesUpdatedAt: bundle.fetchedAt,
   };
+}
+
+export function formatLiveRatesSummary(
+  rates: Partial<Record<ForeignCurrency, number>>,
+  preferred: Currency[],
+): string {
+  const focus = preferred.filter(isForeignCurrency).slice(0, 4);
+  const list = (focus.length > 0 ? focus : (['HKD', 'USD'] as ForeignCurrency[])).map(
+    (c) => `1 ${c}=${rates[c] ?? '—'}`,
+  );
+  return list.join(' · ');
 }

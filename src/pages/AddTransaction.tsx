@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BudgetFxBar } from '../components/BudgetFxBar';
 import { GlassCard } from '../components/GlassCard';
 import { IconAdd, IconPayment } from '../components/CuteIcons';
 import { PaymentPicker } from '../components/PaymentPicker';
 import type { Store } from '../hooks/useStore';
 import type { Bucket, Currency, PaymentMethod, TxKind, TxType } from '../types';
-import { formatRmb, toRmbWithRate } from '../utils/currency';
+import {
+  CURRENCY_META,
+  formatRmb,
+  orderedCurrenciesForPicker,
+  toRmbWithRate,
+} from '../utils/currency';
 import type { DeepLinkAddPrefill } from '../utils/deepLink';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
@@ -88,7 +94,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCurrency, settings.fxRateMode, settings.hkdRate, settings.usdRate, settings.liveHkdRate, settings.liveUsdRate, kind]);
+  }, [activeCurrency, settings.fxRateMode, settings.fixedRates, settings.liveRates, kind]);
 
   const previewRmb = (() => {
     const n = parseFloat(amount);
@@ -245,30 +251,33 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
 
   if (mode === 'hub') {
     return (
-      <GlassCard title="记账">
-        <div className="add-hero">
-          <div className="add-hero-icon" aria-hidden>
-            <IconAdd size={56} />
+      <>
+        <BudgetFxBar store={store} />
+        <GlassCard title="记账">
+          <div className="add-hero">
+            <div className="add-hero-icon" aria-hidden>
+              <IconAdd size={56} />
+            </div>
+            <div className="add-hero-actions">
+              <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={() => startExpenseWizard()}>
+                记账
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block"
+                onClick={() => {
+                  setMode('income');
+                  setType('income');
+                  setKind('normal');
+                  setCategoryId('income_aa');
+                }}
+              >
+                收入
+              </button>
+            </div>
           </div>
-          <div className="add-hero-actions">
-            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={() => startExpenseWizard()}>
-              记账
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-block"
-              onClick={() => {
-                setMode('income');
-                setType('income');
-                setKind('normal');
-                setCategoryId('income_aa');
-              }}
-            >
-              收入
-            </button>
-          </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </>
     );
   }
 
@@ -309,9 +318,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 <div className="field">
                   <label>币种</label>
                   <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-                    <option value="RMB">人民币 RMB</option>
-                    <option value="HKD">港币 HKD</option>
-                    <option value="USD">美元 USD</option>
+                    {orderedCurrenciesForPicker(settings.preferredCurrencies).map((c) => (
+                      <option key={c} value={c}>
+                        {CURRENCY_META[c].label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -522,9 +533,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   disabled={kind === 'topup'}
                   onChange={(e) => setCurrency(e.target.value as Currency)}
                 >
-                  <option value="RMB">人民币 RMB</option>
-                  <option value="HKD">港币 HKD</option>
-                  <option value="USD">美元 USD</option>
+                  {orderedCurrenciesForPicker(settings.preferredCurrencies).map((c) => (
+                    <option key={c} value={c}>
+                      {CURRENCY_META[c].label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

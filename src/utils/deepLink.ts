@@ -1,4 +1,5 @@
 import type { Currency } from '../types';
+import { ALL_CURRENCIES, isCurrency } from './currency';
 
 export interface DeepLinkAddPrefill {
   amount: string;
@@ -6,12 +7,10 @@ export interface DeepLinkAddPrefill {
   note: string;
 }
 
-const CURRENCIES: Currency[] = ['RMB', 'HKD', 'USD'];
-
 /** First money-like number in OCR / raw text (e.g. HK$12.34, ¥8, 12.5). */
 export function parseFirstMoneyAmount(text: string): string | null {
   const re =
-    /(?:HK\$|HKD|￥|¥|\$)?\s*(\d{1,6}(?:\.\d{1,2})?)\s*(?:元|港幣|港币)?/gi;
+    /(?:HK\$|HKD|￥|¥|\$|€|£|NT\$|MOP\$|S\$)?\s*(\d{1,6}(?:\.\d{1,2})?)\s*(?:元|港幣|港币)?/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const value = parseFloat(m[1]);
@@ -27,7 +26,7 @@ function parseCurrency(raw: string | null): Currency {
   if (!raw) return 'RMB';
   const u = raw.trim().toUpperCase();
   if (u === 'CNY' || u === 'CNH') return 'RMB';
-  if ((CURRENCIES as string[]).includes(u)) return u as Currency;
+  if (isCurrency(u)) return u;
   return 'RMB';
 }
 
@@ -57,3 +56,5 @@ export function consumeDeepLinkFromLocation(): DeepLinkAddPrefill | null {
 
   return { amount, currency, note };
 }
+
+export { ALL_CURRENCIES };

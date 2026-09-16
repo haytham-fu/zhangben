@@ -1,4 +1,15 @@
-export type Currency = 'RMB' | 'HKD' | 'USD';
+export type Currency =
+  | 'RMB'
+  | 'HKD'
+  | 'USD'
+  | 'EUR'
+  | 'JPY'
+  | 'GBP'
+  | 'TWD'
+  | 'MOP'
+  | 'SGD';
+
+export type ForeignCurrency = Exclude<Currency, 'RMB'>;
 
 export type Bucket = 'basic' | 'special';
 
@@ -86,8 +97,8 @@ export interface DailyPlan {
 export interface Settings {
   basicBudget: number;
   specialBudget: number;
-  hkdRate: number; // 1 HKD = x RMB
-  usdRate: number;
+  /** Fixed RMB per 1 foreign unit (RMB = 1 always) */
+  fixedRates: Record<ForeignCurrency, number>;
   dailyPlan: DailyPlan;
   defaultSatMode: SatMode;
   /** Per-date sat mode overrides: YYYY-MM-DD -> play|stay */
@@ -97,12 +108,16 @@ export interface Settings {
   includeSpecialInAdvice: boolean;
   /** When true: daily plan vs actual, calendar remaining, plan-based advice */
   dailyPlanCompareEnabled: boolean;
-  /** live = fetch market rate; fixed = use hkdRate/usdRate */
+  /** live = fetch market rate; fixed = use fixedRates */
   fxRateMode: FxRateMode;
-  /** Last successful live rates (RMB per 1 foreign); used as cache / display */
-  liveHkdRate: number | null;
-  liveUsdRate: number | null;
+  /** Last successful live rates (RMB per 1 foreign) */
+  liveRates: Partial<Record<ForeignCurrency, number>>;
   liveRatesUpdatedAt: string | null;
+  /**
+   * Up to 4 preferred currencies for conversion / picker favoritism.
+   * RMB may be included; always treated as base rate 1.
+   */
+  preferredCurrencies: Currency[];
   themeColor: string;
   /** Dashboard 小金山 illustration for remaining budget */
   showGoldMountain: boolean;

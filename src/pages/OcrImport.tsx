@@ -5,7 +5,7 @@ import type { Store } from '../hooks/useStore';
 import type { Currency, PaymentMethod, TxKind, TxType } from '../types';
 import { recognizeImages } from '../utils/ocr';
 import { parseOcrText, type ParsedDraft } from '../utils/ocrParse';
-import { formatRmb, getRate } from '../utils/currency';
+import { CURRENCY_META, formatRmb, getRate, orderedCurrenciesForPicker } from '../utils/currency';
 import { applyLiveBundleToSettings, fetchLiveRates, resolveRate } from '../utils/fx';
 import { PAYMENT_LABEL } from '../utils/payment';
 
@@ -308,9 +308,11 @@ export function OcrImport({ store, onDone, onManual }: Props) {
                               updateDraft(d.id, { currency: e.target.value as Currency })
                             }
                           >
-                            <option value="RMB">RMB</option>
-                            <option value="HKD">HKD</option>
-                            <option value="USD">USD</option>
+                            {orderedCurrenciesForPicker(settings.preferredCurrencies).map((c) => (
+                              <option key={c} value={c}>
+                                {CURRENCY_META[c].short}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="field">

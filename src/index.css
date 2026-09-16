@@ -32,9 +32,18 @@
   --advice-c: rgba(232, 184, 109, 0.3);
   --text: #0f172a;
   --text-muted: #64748b;
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.65);
-  --glass-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
+  --glass-bg: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.42) 48%,
+    rgba(219, 234, 254, 0.38) 100%
+  );
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(147, 197, 253, 0.18);
+  --glass-shadow: 0 8px 32px rgba(37, 99, 235, 0.12), 0 1px 0 rgba(255, 255, 255, 0.5);
+  --glass-blur: blur(18px) saturate(180%);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
   --radius-pill: 9999px;
   --radius-soft: 20px;
   --radius-card: 24px;
@@ -238,15 +247,30 @@ a {
 
 /* Glass card — tuned blur to cut re-paints; enter + light press */
 .glass {
+  position: relative;
   background: var(--glass-bg);
-  /* Slightly lighter blur than 18px — same frosted look, cheaper on mobile */
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
   padding: 16px;
+  overflow: hidden;
   transition: transform var(--dur-fast) var(--ease-soft), box-shadow var(--dur-med) var(--ease-soft);
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 42%;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  border-radius: inherit;
+  opacity: 0.9;
 }
 
 .page-view .glass {
@@ -338,17 +362,20 @@ a {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(147, 197, 253, 0.8);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(219, 234, 254, 0.5));
+  backdrop-filter: blur(14px) saturate(170%);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 10px rgba(37, 99, 235, 0.08);
   color: var(--blue-700);
 }
 
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.4);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.5), rgba(239, 246, 255, 0.28));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--blue-700);
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 .btn-danger {
@@ -431,8 +458,11 @@ a {
   border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.55);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.7), rgba(239, 246, 255, 0.45));
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
   border: 1.5px solid rgba(191, 219, 254, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   color: var(--text-muted);
   transition:
     transform var(--dur-fast) var(--ease-soft),
@@ -481,10 +511,15 @@ a {
   min-height: 44px;
   padding: 10px 16px;
   border-radius: var(--radius-soft);
-  border: 1.5px solid rgba(147, 197, 253, 0.7);
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border: 1.5px solid rgba(191, 219, 254, 0.85);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.78),
+    rgba(239, 246, 255, 0.55)
+  );
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 6px rgba(37, 99, 235, 0.06);
   outline: none;
   transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
@@ -603,10 +638,15 @@ a {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 4px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(239, 246, 255, 0.62) 100%
+  );
+  backdrop-filter: blur(22px) saturate(190%);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  border-top: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow: 0 -8px 28px rgba(37, 99, 235, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   z-index: 50;
 }
 
@@ -659,8 +699,14 @@ a {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.15));
+  background: transparent;
   color: var(--blue-700);
+  position: relative;
+  z-index: 1;
+}
+.liquid-dock .nav-item {
+  position: relative;
+  z-index: 1;
 }
 
 .nav-item.active .nav-icon {
@@ -955,13 +1001,20 @@ a {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(239, 246, 255, 0.78) 100%
+  );
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 28px 28px 20px 20px;
   padding: 16px 16px calc(24px + var(--safe-bottom));
   margin: 0 8px;
-  box-shadow: 0 -8px 40px rgba(37, 99, 235, 0.15);
+  box-shadow:
+    0 -8px 40px rgba(37, 99, 235, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   animation: sheet-up var(--dur-med) var(--ease-out) both;
   overscroll-behavior: contain;
 }
@@ -1893,6 +1946,88 @@ html[data-palette="lilac"] {
   .advice-flow--animated .advice-blob-a,
   .advice-flow--animated .advice-blob-b,
   .advice-flow--animated .advice-blob-c {
+    animation: none !important;
+  }
+}
+
+
+/* —— Liquid glass dock blob —— */
+.liquid-dock {
+  overflow: visible;
+}
+.dock-liquid-blob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  background: linear-gradient(
+    145deg,
+    rgba(147, 197, 253, 0.55) 0%,
+    rgba(191, 219, 254, 0.42) 42%,
+    rgba(224, 231, 255, 0.48) 100%
+  );
+  backdrop-filter: blur(12px) saturate(200%);
+  -webkit-backdrop-filter: blur(12px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 4px 16px rgba(37, 99, 235, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(59, 130, 246, 0.12);
+  transition:
+    transform 420ms var(--ease-spring),
+    width 420ms var(--ease-spring),
+    height 320ms var(--ease-soft),
+    opacity 220ms ease;
+  will-change: transform, width, height;
+}
+.dock-liquid-blob--ready {
+  opacity: 1;
+}
+.dock-liquid-blob--bump {
+  filter: saturate(1.15) brightness(1.04);
+}
+.dock-liquid-blob::after {
+  content: "";
+  position: absolute;
+  inset: 1px 18% auto 18%;
+  height: 38%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), transparent);
+  opacity: 0.85;
+}
+
+/* FX rates grid on 记账顶栏 */
+.fx-rates-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Advice module — stronger liquid glass */
+.advice-flow {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+  backdrop-filter: blur(22px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(190%) !important;
+}
+.advice-flow-list li {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(239, 246, 255, 0.35));
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-liquid-blob {
+    transition: none !important;
+    filter: none !important;
+  }
+  html[data-bg-motion="dynamic"] body::before,
+  html[data-bg-motion="dynamic"] body::after {
     animation: none !important;
   }
 }

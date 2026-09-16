@@ -1,10 +1,10 @@
 import type { Category, Settings, Wallet } from '../types';
+import { DEFAULT_FIXED_RATES, DEFAULT_PREFERRED_CURRENCIES } from './currency';
 
 export const DEFAULT_SETTINGS: Settings = {
   basicBudget: 3500,
   specialBudget: 1500,
-  hkdRate: 0.86,
-  usdRate: 7.2,
+  fixedRates: { ...DEFAULT_FIXED_RATES },
   dailyPlan: {
     mon: 131,
     tue: 96,
@@ -22,9 +22,9 @@ export const DEFAULT_SETTINGS: Settings = {
   includeSpecialInAdvice: true,
   dailyPlanCompareEnabled: true,
   fxRateMode: 'fixed',
-  liveHkdRate: null,
-  liveUsdRate: null,
+  liveRates: {},
   liveRatesUpdatedAt: null,
+  preferredCurrencies: [...DEFAULT_PREFERRED_CURRENCIES],
   themeColor: '#3b82f6',
   showGoldMountain: true,
   themePalette: 'sky',

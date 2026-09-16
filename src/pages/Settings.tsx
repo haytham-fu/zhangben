@@ -4,7 +4,6 @@ import type { Store } from '../hooks/useStore';
 import type { BgMotion, ThemePalette } from '../types';
 import { DEFAULT_SETTINGS } from '../utils/defaults';
 import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographic';
-import { applyLiveBundleToSettings, fetchLiveRates } from '../utils/fx';
 import { exportJson, importJson } from '../utils/storage';
 
 interface Props {
@@ -16,8 +15,6 @@ export function SettingsPage({ store }: Props) {
     store;
   const fileRef = useRef<HTMLInputElement>(null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [fxBusy, setFxBusy] = useState(false);
-  const [fxMsg, setFxMsg] = useState('');
   const [jpgBusy, setJpgBusy] = useState(false);
 
   const dp = settings.dailyPlan;
@@ -27,20 +24,6 @@ export function SettingsPage({ store }: Props) {
     const n = parseFloat(value);
     if (Number.isNaN(n) || n < 0) return;
     updateSettings({ dailyPlan: { ...dp, [key]: n } });
-  }
-
-  async function refreshLiveRates() {
-    setFxBusy(true);
-    setFxMsg('');
-    try {
-      const bundle = await fetchLiveRates();
-      updateSettings(applyLiveBundleToSettings(bundle));
-      setFxMsg(`已更新：1 HKD = ${bundle.hkd} RMB · 1 USD = ${bundle.usd} RMB`);
-    } catch {
-      setFxMsg('实时汇率获取失败，将继续使用固定/缓存汇率');
-    } finally {
-      setFxBusy(false);
-    }
   }
 
   async function exportJpg() {
@@ -141,92 +124,9 @@ export function SettingsPage({ store }: Props) {
       </GlassCard>
 
       <GlassCard title="预算与汇率">
-        <div className="row-2">
-          <div className="field">
-            <label>基础预算 (RMB)</label>
-            <input
-              type="number"
-              value={settings.basicBudget}
-              onChange={(e) => updateSettings({ basicBudget: Number(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="field">
-            <label>专项预算 (RMB)</label>
-            <input
-              type="number"
-              value={settings.specialBudget}
-              onChange={(e) => updateSettings({ specialBudget: Number(e.target.value) || 0 })}
-            />
-          </div>
-        </div>
-
-        <p className="sheet-section-label">汇率模式</p>
-        <div className="chip-row" style={{ marginBottom: 10 }}>
-          <button
-            type="button"
-            className={`chip ${settings.fxRateMode === 'live' ? 'active' : ''}`}
-            onClick={() => {
-              updateSettings({ fxRateMode: 'live' });
-              void refreshLiveRates();
-            }}
-          >
-            实时汇率
-          </button>
-          <button
-            type="button"
-            className={`chip ${settings.fxRateMode === 'fixed' ? 'active' : ''}`}
-            onClick={() => updateSettings({ fxRateMode: 'fixed' })}
-          >
-            固定汇率
-          </button>
-        </div>
-        {settings.fxRateMode === 'live' ? (
-          <>
-            <p className="hint" style={{ marginTop: 0 }}>
-              记账外币时拉取市场汇率并写入该笔；失败则回退固定/缓存并提示。
-            </p>
-            <p className="hint">
-              缓存：1 HKD = {settings.liveHkdRate ?? '—'} · 1 USD = {settings.liveUsdRate ?? '—'}
-              {settings.liveRatesUpdatedAt
-                ? ` · 更新于 ${settings.liveRatesUpdatedAt.slice(0, 16).replace('T', ' ')}`
-                : ''}
-            </p>
-            <button
-              type="button"
-              className="btn btn-secondary btn-block"
-              disabled={fxBusy}
-              onClick={() => void refreshLiveRates()}
-            >
-              {fxBusy ? '刷新中…' : '立即刷新实时汇率'}
-            </button>
-            {fxMsg && <p className="hint section-gap">{fxMsg}</p>}
-            <p className="hint section-gap">下方固定汇率仍作离线回退备用。</p>
-          </>
-        ) : (
-          <p className="hint" style={{ marginTop: 0 }}>
-            使用下方可编辑的近似固定汇率；每笔保存当时汇率。
-          </p>
-        )}
-        <div className="row-2">
-          <div className="field">
-            <label>1 HKD = ? RMB（固定）</label>
-            <input
-              type="number"
-              step="0.01"
-              value={settings.hkdRate}
-              onChange={(e) => updateSettings({ hkdRate: Number(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="field">
-            <label>1 USD = ? RMB（固定）</label>
-            <input
-              type="number"
-              step="0.01"
-              value={settings.usdRate}
-              onChange={(e) => updateSettings({ usdRate: Number(e.target.value) || 0 })}
-            />
-          </div>
-        </div>
+        <p className="hint" style={{ margin: 0 }}>
+          月预算概览、汇率模式与偏好币种已移至「记账」页顶部，便于记账时直接调整。日计划等仍在下方配置。
+        </p>
       </GlassCard>
 
       {planOn && (
@@ -239,7 +139,7 @@ export function SettingsPage({ store }: Props) {
         }
       >
         <p className="hint" style={{ marginTop: 0 }}>
-          上方「基础 / 专项」月预算与下方每日额度将用于总览、日历余缺与节奏建议。
+          「记账」页顶部的基础/专项月预算与下方每日额度将用于总览、日历余缺与节奏建议。
         </p>
         {!planOpen ? (
           <p className="hint" style={{ margin: 0 }}>
