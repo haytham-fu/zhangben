@@ -2,8 +2,8 @@ import type { AppState, Category, Settings, Transaction } from '../types';
 import {
   budgetStatus,
   filterMonth,
-  netBasicSpend,
-  specialSpend,
+  monthBasicUsed,
+  monthSpecialUsed,
   type BudgetStatus,
 } from './budget';
 
@@ -113,8 +113,8 @@ export async function renderLedgerInfographic(opts: InfographicOptions): Promise
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const monthTxs = filterMonth(state.transactions, ym);
   const includeOpts = { includeSpecial: settings.includeSpecialInAdvice };
-  const basicUsed = netBasicSpend(monthTxs, includeOpts);
-  const specialUsed = specialSpend(monthTxs, includeOpts);
+  const basicUsed = monthBasicUsed(state.transactions, state.settings, ym, includeOpts);
+  const specialUsed = monthSpecialUsed(state.transactions, state.settings, ym, includeOpts);
   const totalUsed = basicUsed + specialUsed;
   const income = monthIncome(monthTxs);
   const expense = monthExpense(monthTxs);

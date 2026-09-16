@@ -14,8 +14,8 @@ import {
   filterMonth,
   getDailyPlanAmount,
   getSatMode,
-  netBasicSpend,
-  specialSpend,
+  monthBasicUsed,
+  monthSpecialUsed,
   weekdayLabel,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
@@ -31,8 +31,8 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const monthTxs = filterMonth(transactions, currentYm);
-  const basicUsed = netBasicSpend(monthTxs, opts);
-  const specialUsed = specialSpend(monthTxs, opts);
+  const basicUsed = monthBasicUsed(transactions, settings, currentYm, opts);
+  const specialUsed = monthSpecialUsed(transactions, settings, currentYm, opts);
   const totalBudget = settings.basicBudget + settings.specialBudget;
   const totalUsed = basicUsed + specialUsed;
 

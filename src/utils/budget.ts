@@ -80,6 +80,44 @@ export function specialSpend(txs: Transaction[], opts: { includeSpecial: boolean
   return Math.round(sum * 100) / 100;
 }
 
+
+/** Prior-period opening for ym (0 if none / different month). */
+export function monthOpeningUsed(
+  settings: Settings,
+  ym: string,
+): { basicUsed: number; specialUsed: number } {
+  const o = settings.monthOpening;
+  if (!o || o.ym !== ym) return { basicUsed: 0, specialUsed: 0 };
+  return {
+    basicUsed: Math.round((o.basicUsed || 0) * 100) / 100,
+    specialUsed: Math.round((o.specialUsed || 0) * 100) / 100,
+  };
+}
+
+/** Month basic used = opening + txs */
+export function monthBasicUsed(
+  txs: Transaction[],
+  settings: Settings,
+  ym: string,
+  opts: { includeSpecial: boolean },
+): number {
+  const fromTxs = netBasicSpend(filterMonth(txs, ym), opts);
+  const open = monthOpeningUsed(settings, ym).basicUsed;
+  return Math.round((fromTxs + open) * 100) / 100;
+}
+
+/** Month special used = opening + txs */
+export function monthSpecialUsed(
+  txs: Transaction[],
+  settings: Settings,
+  ym: string,
+  opts: { includeSpecial: boolean },
+): number {
+  const fromTxs = specialSpend(filterMonth(txs, ym), opts);
+  const open = monthOpeningUsed(settings, ym).specialUsed;
+  return Math.round((fromTxs + open) * 100) / 100;
+}
+
 export function dayNetBasic(
   txs: Transaction[],
   dateStr: string,

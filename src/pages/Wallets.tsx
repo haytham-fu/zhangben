@@ -5,7 +5,7 @@ import { PantryPanel } from '../components/PantryPanel';
 import { ProgressBar } from '../components/ProgressBar';
 import type { Store } from '../hooks/useStore';
 import type { Wallet, WalletTransferSource } from '../types';
-import { budgetStatus, filterMonth, netBasicSpend, specialSpend } from '../utils/budget';
+import { budgetStatus, monthBasicUsed, monthSpecialUsed } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
 import {
   isMonthSettled,
@@ -68,9 +68,10 @@ export function WalletsPage({ store }: Props) {
     [wallets],
   );
 
-  const monthTxs = useMemo(() => filterMonth(transactions, currentYm), [transactions, currentYm]);
-  const basicUsed = netBasicSpend(monthTxs, { includeSpecial: settings.includeSpecialInAdvice });
-  const specialUsed = specialSpend(monthTxs, { includeSpecial: true });
+  const basicUsed = monthBasicUsed(transactions, settings, currentYm, {
+    includeSpecial: settings.includeSpecialInAdvice,
+  });
+  const specialUsed = monthSpecialUsed(transactions, settings, currentYm, { includeSpecial: true });
   const totalBudget = settings.basicBudget + settings.specialBudget;
   const totalRemain = Math.round((totalBudget - basicUsed - specialUsed) * 100) / 100;
   const canTransfer = transferableRemain(settings, wallets, transactions, currentYm);

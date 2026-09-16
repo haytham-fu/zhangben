@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { GlassCard } from './GlassCard';
 import type { Store } from '../hooks/useStore';
 import type { Currency, ForeignCurrency } from '../types';
@@ -18,7 +18,7 @@ import {
   fetchLiveRates,
   formatLiveRatesSummary,
 } from '../utils/fx';
-import { filterMonth, netBasicSpend, specialSpend } from '../utils/budget';
+import { monthBasicUsed, monthSpecialUsed } from '../utils/budget';
 
 interface Props {
   store: Store;
@@ -33,9 +33,8 @@ export function BudgetFxBar({ store }: Props) {
 
   const preferred = normalizePreferredCurrencies(settings.preferredCurrencies);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
-  const monthTxs = useMemo(() => filterMonth(transactions, currentYm), [transactions, currentYm]);
-  const basicUsed = netBasicSpend(monthTxs, opts);
-  const specialUsed = specialSpend(monthTxs, opts);
+  const basicUsed = monthBasicUsed(transactions, settings, currentYm, opts);
+  const specialUsed = monthSpecialUsed(transactions, settings, currentYm, opts);
   const basicLeft = settings.basicBudget - basicUsed;
   const specialLeft = settings.specialBudget - specialUsed;
   const isLive = settings.fxRateMode === 'live';

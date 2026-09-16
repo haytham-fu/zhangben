@@ -155,6 +155,21 @@ export interface DailyPlan {
   sun: number;
 }
 
+export interface MonthOpening {
+  /** yyyy-MM this opening applies to */
+  ym: string;
+  /** Net basic already used before new txs (expense − income in basic) */
+  basicUsed: number;
+  /** Net special already used before new txs */
+  specialUsed: number;
+  /** Optional display: first-half gross expense RMB */
+  expenseRmb?: number;
+  /** Optional display: first-half income RMB */
+  incomeRmb?: number;
+  /** Short label shown in UI */
+  label?: string;
+}
+
 export interface Settings {
   basicBudget: number;
   specialBudget: number;
@@ -189,6 +204,11 @@ export interface Settings {
    * Prevents double settlement for the same month.
    */
   settledMonths?: string[];
+  /**
+   * Prior-period summary for the current month (no daily line items).
+   * Budget "used" = opening + txs in this ym.
+   */
+  monthOpening?: MonthOpening | null;
 }
 
 export interface AppState {

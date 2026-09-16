@@ -4,7 +4,7 @@ import type { Store } from '../hooks/useStore';
 import type { BgMotion, ThemePalette } from '../types';
 import { DEFAULT_SETTINGS } from '../utils/defaults';
 import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographic';
-import { exportJson, importJson, normalizeSettings } from '../utils/storage';
+import { exportJson, importJson } from '../utils/storage';
 
 interface Props {
   store: Store;
@@ -37,64 +37,6 @@ export function SettingsPage({ store }: Props) {
     }
   }
 
-  async function importSeptHalfSample() {
-    const replace = confirm(
-      '导入「九月前半月样例账」并【替换】当前全部流水？\n（同时合并样例预算 / 汇率等到设置）\n\n点「取消」可改为合并导入。',
-    );
-    let mode: 'replace' | 'merge' = 'replace';
-    if (!replace) {
-      const merge = confirm(
-        '改为【合并】样例流水到现有账本？（相同 id 跳过，仍合并样例设置）\n\n点「取消」则不导入。',
-      );
-      if (!merge) return;
-      mode = 'merge';
-    }
-
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}sept-2026-half.json`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await res.text();
-      const partial = JSON.parse(raw) as {
-        settings?: Record<string, unknown>;
-        transactions?: unknown;
-        wallets?: unknown;
-      };
-      const sample = importJson(raw);
-      const nextSettings = partial.settings
-        ? normalizeSettings({ ...state.settings, ...partial.settings })
-        : state.settings;
-
-      if (mode === 'replace') {
-        replaceState({
-          ...state,
-          settings: nextSettings,
-          transactions: sample.transactions,
-          wallets: sample.wallets.length > 0 ? sample.wallets : state.wallets,
-          pantryItems: sample.pantryItems ?? state.pantryItems,
-        });
-        alert(`已替换导入 ${sample.transactions.length} 条样例流水`);
-      } else {
-        const have = new Set(state.transactions.map((t) => t.id));
-        const added = sample.transactions.filter((t) => !have.has(t.id));
-        const haveW = new Set(state.wallets.map((w) => w.id));
-        const addedW = sample.wallets.filter((w) => !haveW.has(w.id));
-        const haveP = new Set(state.pantryItems.map((x) => x.id));
-        const addedP = (sample.pantryItems ?? []).filter((x) => !haveP.has(x.id));
-        replaceState({
-          ...state,
-          settings: nextSettings,
-          transactions: [...added, ...state.transactions],
-          wallets: [...state.wallets, ...addedW],
-          pantryItems: [...state.pantryItems, ...addedP],
-        });
-        alert(
-          `已合并 ${added.length} 条样例流水（跳过 ${sample.transactions.length - added.length} 条重复）`,
-        );
-      }
-    } catch (e) {
-      alert(e instanceof Error ? `导入失败：${e.message}` : '导入失败');
-    }
-  }
 
   return (
     <>
@@ -338,14 +280,17 @@ export function SettingsPage({ store }: Props) {
             e.target.value = '';
           }}
         />
-        <button
-          type="button"
-          className="btn btn-secondary btn-block section-gap"
-          onClick={() => void importSeptHalfSample()}
-        >
-          导入九月前半月样例账
-        </button>
-        <p className="hint">样例含 9/1–9/16 笔记 + 八达通消费（HKD×0.86），充值不计支出；可替换或合并。</p>
+        {settings.monthOpening && settings.monthOpening.ym === currentYm && (
+          <p className="hint section-gap">
+            本月期初汇总（{settings.monthOpening.label ?? settings.monthOpening.ym}）：基础已用 ¥
+            {settings.monthOpening.basicUsed.toFixed(2)}，专项已用 ¥
+            {settings.monthOpening.specialUsed.toFixed(2)}
+            {settings.monthOpening.expenseRmb != null && settings.monthOpening.incomeRmb != null
+              ? `（支出 ¥${settings.monthOpening.expenseRmb.toFixed(2)} − 收入 ¥${settings.monthOpening.incomeRmb.toFixed(2)}）`
+              : ''}
+            。不含逐日明细；新流水从今天叠加。
+          </p>
+        )}
         <button
           type="button"
           className="btn btn-danger btn-block section-gap"

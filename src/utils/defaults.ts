@@ -28,6 +28,15 @@ export const DEFAULT_SETTINGS: Settings = {
   themePalette: 'sky',
   bgMotion: 'dynamic',
   settledMonths: [],
+  /** 2026-09 上半月汇总（无逐日流水）；公网从今天起记账 */
+  monthOpening: {
+    ym: '2026-09',
+    basicUsed: 1644.08,
+    specialUsed: 531,
+    expenseRmb: 2422.86,
+    incomeRmb: 247.78,
+    label: '9/1–9/15 汇总',
+  },
 };
 
 export const DEFAULT_CATEGORIES: Category[] = [

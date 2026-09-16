@@ -1,5 +1,5 @@
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, DEFAULT_WALLETS, STORAGE_KEY } from './defaults';
-import type { AppState, Category, ForeignCurrency, PantryItem, Settings, Transaction, Wallet } from '../types';
+import type { AppState, Category, ForeignCurrency, MonthOpening, PantryItem, Settings, Transaction, Wallet } from '../types';
 import {
   DEFAULT_FIXED_RATES,
   FOREIGN_CURRENCIES,
@@ -104,6 +104,26 @@ function normalizePantryItems(list: unknown): PantryItem[] {
   return out;
 }
 
+
+function normalizeMonthOpening(raw: unknown): MonthOpening | null | undefined {
+  if (raw === null) return null;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.ym !== 'string' || !/^\d{4}-\d{2}$/.test(o.ym)) return undefined;
+  const basicUsed = typeof o.basicUsed === 'number' ? o.basicUsed : Number(o.basicUsed);
+  const specialUsed = typeof o.specialUsed === 'number' ? o.specialUsed : Number(o.specialUsed);
+  if (!Number.isFinite(basicUsed) || !Number.isFinite(specialUsed)) return undefined;
+  const out: MonthOpening = {
+    ym: o.ym,
+    basicUsed: Math.round(basicUsed * 100) / 100,
+    specialUsed: Math.round(specialUsed * 100) / 100,
+  };
+  if (typeof o.expenseRmb === 'number') out.expenseRmb = Math.round(o.expenseRmb * 100) / 100;
+  if (typeof o.incomeRmb === 'number') out.incomeRmb = Math.round(o.incomeRmb * 100) / 100;
+  if (typeof o.label === 'string') out.label = o.label;
+  return out;
+}
+
 /** Migrate legacy hkdRate/usdRate/liveHkdRate/liveUsdRate → fixedRates/liveRates. */
 export function normalizeSettings(raw: unknown): Settings {
   const partial = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings> & {
@@ -154,6 +174,7 @@ export function normalizeSettings(raw: unknown): Settings {
     musicMembershipEnabled: _mme,
     showGoldMountain: _sgm,
     showMonthlyBudgetProgress: _smbp,
+    monthOpening: _mo,
     ...rest
   } = partial as typeof partial & {
     musicMembershipHkd?: number;
@@ -166,6 +187,15 @@ export function normalizeSettings(raw: unknown): Settings {
       : typeof partial.showGoldMountain === 'boolean'
         ? partial.showGoldMountain
         : DEFAULT_SETTINGS.showMonthlyBudgetProgress;
+
+  // Fresh install (empty partial) keeps DEFAULT monthOpening; existing saves
+  // without the key must not inherit it (avoids double-count with old daily imports).
+  const isFresh = Object.keys(partial).length === 0;
+  const monthOpening = isFresh
+    ? DEFAULT_SETTINGS.monthOpening
+    : 'monthOpening' in partial
+      ? normalizeMonthOpening((partial as { monthOpening?: unknown }).monthOpening) ?? null
+      : undefined;
 
   return {
     ...DEFAULT_SETTINGS,
@@ -180,6 +210,7 @@ export function normalizeSettings(raw: unknown): Settings {
     settledMonths: Array.isArray(partial.settledMonths)
       ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
       : [],
+    monthOpening: monthOpening === undefined ? undefined : monthOpening,
   };
 }
 

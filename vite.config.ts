@@ -2,7 +2,10 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const pagesBase = process.env.GITHUB_PAGES === 'true' ? '/zhangben/' : '/'
+
 export default defineConfig({
+  base: pagesBase,
   plugins: [
     react(),
     VitePWA({
@@ -17,7 +20,8 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         lang: 'zh-CN',
-        start_url: '/',
+        start_url: pagesBase,
+        scope: pagesBase,
         icons: [
           {
             src: 'icons/icon-192.png',
@@ -39,6 +43,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallback: pagesBase === '/' ? 'index.html' : `${pagesBase}index.html`,
       },
     }),
   ],

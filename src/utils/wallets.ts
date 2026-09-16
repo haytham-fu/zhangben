@@ -8,7 +8,7 @@ import type {
   WalletTransfer,
   WalletTransferSource,
 } from '../types';
-import { filterMonth, isBudgetExpense, netBasicSpend, specialSpend } from './budget';
+import { filterMonth, isBudgetExpense, monthBasicUsed, monthSpecialUsed } from './budget';
 import { roundMoney } from './grocery';
 
 export const WALLET_COLORS = [
@@ -171,9 +171,10 @@ export function monthNetSpend(
   ym: string,
   settings: Settings,
 ): { basicUsed: number; specialUsed: number; totalUsed: number; totalBudget: number; remain: number } {
-  const monthTxs = filterMonth(txs, ym);
-  const basicUsed = netBasicSpend(monthTxs, { includeSpecial: settings.includeSpecialInAdvice });
-  const specialUsed = specialSpend(monthTxs, { includeSpecial: true });
+  const basicUsed = monthBasicUsed(txs, settings, ym, {
+    includeSpecial: settings.includeSpecialInAdvice,
+  });
+  const specialUsed = monthSpecialUsed(txs, settings, ym, { includeSpecial: true });
   const totalUsed = roundMoney(basicUsed + specialUsed);
   const totalBudget = roundMoney(settings.basicBudget + settings.specialBudget);
   const remain = roundMoney(totalBudget - totalUsed);
@@ -200,12 +201,13 @@ export function bucketRemain(
   ym: string,
   bucket: Bucket,
 ): number {
-  const monthTxs = filterMonth(txs, ym);
   if (bucket === 'basic') {
-    const used = netBasicSpend(monthTxs, { includeSpecial: settings.includeSpecialInAdvice });
+    const used = monthBasicUsed(txs, settings, ym, {
+      includeSpecial: settings.includeSpecialInAdvice,
+    });
     return roundMoney(settings.basicBudget - used);
   }
-  const used = specialSpend(monthTxs, { includeSpecial: true });
+  const used = monthSpecialUsed(txs, settings, ym, { includeSpecial: true });
   return roundMoney(settings.specialBudget - used);
 }
 
