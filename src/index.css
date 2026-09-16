@@ -1781,32 +1781,53 @@ a {
   color: var(--blue-800);
 }
 
-/* —— 小金山 —— */
+/* —— 小金山（soft champagne 金砖，液态玻璃风） —— */
 .gold-mountain {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 0 14px;
-  padding: 8px 10px 10px;
+  padding: 10px 12px 12px;
   border-radius: var(--radius-soft);
-  background: linear-gradient(165deg, rgba(255, 251, 240, 0.55), rgba(219, 234, 254, 0.35));
-  border: 1px solid rgba(232, 212, 168, 0.45);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 252, 245, 0.55) 0%,
+    rgba(255, 255, 255, 0.28) 45%,
+    rgba(219, 234, 254, 0.22) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 1px 8px rgba(184, 149, 90, 0.06);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
   transition:
     background var(--dur-med) var(--ease-soft),
     border-color var(--dur-med) ease,
+    box-shadow var(--dur-med) ease,
     opacity var(--dur-med) ease;
 }
 
 .gold-mountain--low,
 .gold-mountain--empty {
-  background: linear-gradient(165deg, rgba(241, 245, 249, 0.5), rgba(219, 234, 254, 0.28));
-  border-color: rgba(191, 219, 254, 0.5);
+  background: linear-gradient(
+    160deg,
+    rgba(248, 250, 252, 0.5) 0%,
+    rgba(219, 234, 254, 0.22) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 6px rgba(37, 99, 235, 0.04);
 }
 
 .gold-mountain--over {
-  background: linear-gradient(165deg, rgba(254, 242, 242, 0.4), rgba(219, 234, 254, 0.25));
-  border-color: rgba(201, 132, 90, 0.28);
+  background: linear-gradient(
+    160deg,
+    rgba(254, 247, 245, 0.45) 0%,
+    rgba(219, 234, 254, 0.2) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.55);
 }
 
 .gold-mountain-svg {
@@ -1817,16 +1838,16 @@ a {
 
 .gm-heap {
   transition:
-    transform 0.5s var(--ease-out),
-    opacity 0.45s var(--ease-soft);
+    transform 0.45s var(--ease-out),
+    opacity 0.4s var(--ease-soft);
 }
 
 .gm-brick,
 .gm-nugget {
   opacity: 0;
   transition:
-    opacity 0.35s var(--ease-soft),
-    transform 0.4s var(--ease-out);
+    opacity 0.32s var(--ease-soft),
+    transform 0.36s var(--ease-out);
 }
 
 .gm-brick--on,
@@ -1838,41 +1859,39 @@ a {
 .gm-sparkles,
 .gm-flag,
 .gm-face {
-  transition: opacity 0.45s var(--ease-soft);
+  transition: opacity 0.4s var(--ease-soft);
 }
 
-/* Noticeable bounce / stack morph when remaining amount changes */
+/* Soft stack nudge when remaining amount changes */
 .gold-mountain--bump .gold-mountain-svg {
-  animation: gm-stack-bounce 0.62s var(--ease-out);
+  animation: gm-stack-bounce 0.5s var(--ease-out);
 }
 
 .gold-mountain--bump .gm-heap {
-  animation: gm-heap-jiggle 0.62s var(--ease-out);
+  animation: gm-heap-jiggle 0.5s var(--ease-out);
 }
 
 .gold-mountain--bump .gm-brick--on,
 .gold-mountain--bump .gm-nugget--on {
-  animation: gm-nugget-pop 0.55s var(--ease-out);
+  animation: gm-nugget-pop 0.45s var(--ease-out);
 }
 
 @keyframes gm-stack-bounce {
   0% { transform: scale(1) translateY(0); }
-  28% { transform: scale(1.1) translateY(-8px); }
-  52% { transform: scale(0.94) translateY(3px); }
-  72% { transform: scale(1.03) translateY(-2px); }
+  30% { transform: scale(1.03) translateY(-3px); }
+  55% { transform: scale(0.985) translateY(1px); }
   100% { transform: scale(1) translateY(0); }
 }
 
 @keyframes gm-heap-jiggle {
   0% { transform: translateY(0) scale(1); }
-  30% { transform: translateY(-5px) scale(1.06); }
-  55% { transform: translateY(2px) scale(0.97); }
+  35% { transform: translateY(-2px) scale(1.02); }
   100% { transform: translateY(0) scale(1); }
 }
 
 @keyframes gm-nugget-pop {
   0% { transform: translateY(0) scale(1); }
-  35% { transform: translateY(-4px) scale(1.08); }
+  40% { transform: translateY(-2px) scale(1.04); }
   100% { transform: translateY(0) scale(1); }
 }
 
@@ -1885,10 +1904,10 @@ a {
 }
 
 .gm-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #9a7b3c;
-  letter-spacing: 0.02em;
+  font-size: 0.76rem;
+  font-weight: 650;
+  color: var(--gold-500);
+  letter-spacing: 0.03em;
 }
 
 .gold-mountain--empty .gm-title,
@@ -1897,13 +1916,13 @@ a {
 }
 
 .gm-remain {
-  font-size: 0.8rem;
-  font-weight: 650;
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
 .gold-mountain--full .gm-remain {
-  color: #8a6d3b;
+  color: var(--gold-500);
 }
 
 
