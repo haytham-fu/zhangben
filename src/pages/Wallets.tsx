@@ -4,9 +4,10 @@ import { IconEmptyWallet } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { ProgressBar } from '../components/ProgressBar';
 import type { Store } from '../hooks/useStore';
-import type { Bucket, Wallet } from '../types';
+import type { Wallet } from '../types';
+import { budgetStatus, filterMonth, netBasicSpend, specialSpend } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
-import { allocatedSum, unallocated, WALLET_COLORS, walletSpend, walletStatus } from '../utils/wallets';
+import { WALLET_COLORS, walletSpend, walletStatus } from '../utils/wallets';
 
 interface Props {
   store: Store;
@@ -22,20 +23,17 @@ type EditDraft = {
 export function WalletsPage({ store }: Props) {
   const { wallets, settings, transactions, currentYm, addWallet, updateWallet, removeWallet } = store;
   const [edit, setEdit] = useState<EditDraft | null>(null);
-  const [addBucket, setAddBucket] = useState<Bucket | null>(null);
+  const [adding, setAdding] = useState(false);
   const [addAllocated, setAddAllocated] = useState('');
 
-  const basicWallets = useMemo(
-    () => wallets.filter((w) => w.bucket === 'basic').sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [wallets],
-  );
-  const specialWallets = useMemo(
-    () => wallets.filter((w) => w.bucket === 'special').sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+  const sortedWallets = useMemo(
+    () => [...wallets].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [wallets],
   );
 
-  const basicFree = unallocated(settings, wallets, 'basic');
-  const specialFree = unallocated(settings, wallets, 'special');
+  const monthTxs = useMemo(() => filterMonth(transactions, currentYm), [transactions, currentYm]);
+  const basicUsed = netBasicSpend(monthTxs, { includeSpecial: settings.includeSpecialInAdvice });
+  const specialUsed = specialSpend(monthTxs, { includeSpecial: true });
 
   function openEdit(w: Wallet) {
     setEdit({
@@ -44,7 +42,7 @@ export function WalletsPage({ store }: Props) {
       color: w.color,
       allocated: String(w.allocated),
     });
-    setAddBucket(null);
+    setAdding(false);
   }
 
   function saveEdit() {
@@ -63,60 +61,101 @@ export function WalletsPage({ store }: Props) {
   }
 
   function confirmAdd() {
-    if (!addBucket) return;
     const n = addAllocated.trim() === '' ? 0 : parseFloat(addAllocated);
     if (Number.isNaN(n) || n < 0) {
       alert('请输入有效的分配金额');
       return;
     }
-    addWallet(addBucket, n);
-    setAddBucket(null);
+    addWallet(n);
+    setAdding(false);
     setAddAllocated('');
   }
 
-  function renderSection(title: string, budget: number, list: Wallet[], bucket: Bucket, free: number) {
-    const usedAlloc = allocatedSum(wallets, bucket);
-    return (
+  function openAdd() {
+    setAdding(true);
+    setAddAllocated('');
+    setEdit(null);
+  }
+
+  return (
+    <>
       <GlassCard
-        title={title}
+        title="小荷包"
         action={
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => {
-              setAddBucket(bucket);
-              setAddAllocated('');
-              setEdit(null);
-            }}
-          >
-            + 新建
+          <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
+            + 新建小荷包
           </button>
         }
       >
-        <div className="wallet-bucket-meta">
-          <div className="stat-pill">
-            <div className="k">预算</div>
-            <div className="v">{formatRmb(budget)}</div>
-          </div>
-          <div className="stat-pill">
-            <div className="k">已分配</div>
-            <div className="v">{formatRmb(usedAlloc)}</div>
-          </div>
-          <div className="stat-pill">
-            <div className="k">未分配</div>
-            <div className={`v ${free < 0 ? 'neg' : ''}`}>{formatRmb(free)}</div>
-          </div>
-        </div>
+        <p className="hint" style={{ marginBottom: 0 }}>
+          与基础生活 / 专项同级的独立荷包，记账时可选用。数据保存在本机。
+        </p>
+      </GlassCard>
 
-        {list.length === 0 ? (
+      <div className="wallet-peer-grid">
+        <GlassCard title="基础生活">
+          <div className="wallet-bucket-meta">
+            <div className="stat-pill">
+              <div className="k">预算</div>
+              <div className="v">{formatRmb(settings.basicBudget)}</div>
+            </div>
+            <div className="stat-pill">
+              <div className="k">本月已用</div>
+              <div className="v">{formatRmb(basicUsed)}</div>
+            </div>
+            <div className="stat-pill">
+              <div className="k">剩余</div>
+              <div className={`v ${settings.basicBudget - basicUsed < 0 ? 'neg' : ''}`}>
+                {formatRmb(settings.basicBudget - basicUsed)}
+              </div>
+            </div>
+          </div>
+          <ProgressBar
+            label="本月进度"
+            used={basicUsed}
+            budget={settings.basicBudget}
+            status={budgetStatus(basicUsed, settings.basicBudget)}
+            remainLabel
+          />
+        </GlassCard>
+
+        <GlassCard title="专项">
+          <div className="wallet-bucket-meta">
+            <div className="stat-pill">
+              <div className="k">预算</div>
+              <div className="v">{formatRmb(settings.specialBudget)}</div>
+            </div>
+            <div className="stat-pill">
+              <div className="k">本月已用</div>
+              <div className="v">{formatRmb(specialUsed)}</div>
+            </div>
+            <div className="stat-pill">
+              <div className="k">剩余</div>
+              <div className={`v ${settings.specialBudget - specialUsed < 0 ? 'neg' : ''}`}>
+                {formatRmb(settings.specialBudget - specialUsed)}
+              </div>
+            </div>
+          </div>
+          <ProgressBar
+            label="本月进度"
+            used={specialUsed}
+            budget={settings.specialBudget}
+            status={budgetStatus(specialUsed, settings.specialBudget)}
+            remainLabel
+          />
+        </GlassCard>
+      </div>
+
+      <GlassCard title="我的小荷包">
+        {sortedWallets.length === 0 ? (
           <EmptyState
             icon={<IconEmptyWallet size={52} />}
             title="还没有小荷包"
-            hint={`点「新建」从${bucket === 'basic' ? '基础 3500' : '专项 1500'}里分一块钱出来～`}
+            hint="点上方「+ 新建小荷包」创建一个～"
           />
         ) : (
           <ul className="wallet-list">
-            {list.map((w) => {
+            {sortedWallets.map((w) => {
               const spent = walletSpend(transactions, w.id, currentYm);
               const remain = Math.round((w.allocated - spent) * 100) / 100;
               const status = walletStatus(spent, w.allocated);
@@ -158,29 +197,12 @@ export function WalletsPage({ store }: Props) {
           </ul>
         )}
       </GlassCard>
-    );
-  }
 
-  return (
-    <>
-      <GlassCard title="小荷包">
-        <p className="hint" style={{ marginBottom: 0 }}>
-          把基础 3500 / 专项 1500 拆成多个可爱荷包，记账时可选用。数据保存在本机。
-        </p>
-      </GlassCard>
-
-      {renderSection('基础生活 · 3500', settings.basicBudget, basicWallets, 'basic', basicFree)}
-      {renderSection('专项 · 1500', settings.specialBudget, specialWallets, 'special', specialFree)}
-
-      {addBucket && (
+      {adding && (
         <div className="modal-backdrop" role="presentation">
           <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="新建小荷包">
             <div className="modal-handle" />
             <h2 className="glass-title">新建小荷包</h2>
-            <p className="hint" style={{ marginBottom: 12 }}>
-              {addBucket === 'basic' ? '基础生活' : '专项'} · 会自动起可爱名字和颜色，未分配{' '}
-              {formatRmb(addBucket === 'basic' ? basicFree : specialFree)}
-            </p>
             <div className="field">
               <label>分配金额 (RMB)</label>
               <input
@@ -197,7 +219,7 @@ export function WalletsPage({ store }: Props) {
             <button
               type="button"
               className="btn btn-secondary btn-block section-gap"
-              onClick={() => setAddBucket(null)}
+              onClick={() => setAdding(false)}
             >
               取消
             </button>

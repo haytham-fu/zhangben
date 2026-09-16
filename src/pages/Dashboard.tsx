@@ -21,11 +21,10 @@ import { formatRmb } from '../utils/currency';
 
 interface Props {
   store: Store;
-  onAdd: () => void;
   onOpenTx: (id: string) => void;
 }
 
-export function Dashboard({ store, onAdd, onOpenTx }: Props) {
+export function Dashboard({ store, onOpenTx }: Props) {
   const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
@@ -110,9 +109,6 @@ export function Dashboard({ store, onAdd, onOpenTx }: Props) {
             </div>
           </div>
         )}
-        <button type="button" className="btn btn-primary btn-block section-gap" onClick={onAdd}>
-          点记账
-        </button>
       </GlassCard>
 
       <GlassCard title={planOn ? '本月预算' : '本月汇总'}>
@@ -196,7 +192,7 @@ export function Dashboard({ store, onAdd, onOpenTx }: Props) {
 
       <GlassCard title="最近流水">
         {recent.length === 0 ? (
-          <EmptyState icon={<IconEmptyLedger />} title="还没有记录" hint="点上方「点记账」开始" />
+          <EmptyState icon={<IconEmptyLedger />} title="还没有记录" hint="用底部「记账」开始" />
         ) : (
           <ul className="tx-list">
             {recent.map((tx) => (

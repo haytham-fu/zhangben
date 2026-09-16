@@ -108,9 +108,9 @@ export function useStore() {
     }));
   }, []);
 
-  const addWallet = useCallback((bucket: Bucket, allocated = 0) => {
+  const addWallet = useCallback((allocated = 0) => {
     setState((s) => {
-      const wallet = createWallet(bucket, s.wallets, allocated);
+      const wallet = createWallet(s.wallets, allocated);
       return { ...s, wallets: [...s.wallets, wallet] };
     });
   }, []);

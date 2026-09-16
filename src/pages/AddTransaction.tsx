@@ -235,21 +235,15 @@ export function AddTransaction({ store, onDone }: Props) {
 
   if (mode === 'hub') {
     return (
-      <>
-        <GlassCard title="记账">
-          <div className="add-hero">
-            <div className="add-hero-icon" aria-hidden>
-              <IconAdd size={56} />
-            </div>
-            <p className="add-hero-text">先选支出类型，再选扣款方法，然后填金额</p>
-            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={startExpenseWizard}>
-              点记账
-            </button>
+      <GlassCard title="记账">
+        <div className="add-hero">
+          <div className="add-hero-icon" aria-hidden>
+            <IconAdd size={56} />
           </div>
-        </GlassCard>
-
-        <GlassCard title="其他方式">
-          <div className="add-alt-grid">
+          <div className="add-hero-actions">
+            <button type="button" className="btn btn-primary btn-block add-hero-btn" onClick={startExpenseWizard}>
+              记账
+            </button>
             <button
               type="button"
               className="btn btn-secondary btn-block"
@@ -260,32 +254,11 @@ export function AddTransaction({ store, onDone }: Props) {
                 setCategoryId('income_aa');
               }}
             >
-              记收入
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-block"
-              onClick={() => {
-                setMode('topup');
-                setKind('topup');
-                setType('expense');
-                setCurrency('HKD');
-                setCategoryId('octopus_topup');
-                setPaymentMethod('octopus');
-              }}
-            >
-              八达通充值
-            </button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('ocr')}>
-              从截图导入
-            </button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('batch')}>
-              文本批量导入
+              收入
             </button>
           </div>
-          <p className="hint section-gap">截图识别与批量粘贴为备用；日常请用上方「点记账」。</p>
-        </GlassCard>
-      </>
+        </div>
+      </GlassCard>
     );
   }
 
@@ -371,22 +344,20 @@ export function AddTransaction({ store, onDone }: Props) {
                   >
                     不指定
                   </button>
-                  {wallets
-                    .filter((w) => w.bucket === bucket)
-                    .map((w) => (
-                      <button
-                        key={w.id}
-                        type="button"
-                        className={`chip chip-with-icon ${walletId === w.id ? 'active' : ''}`}
-                        onClick={() => setWalletId(w.id)}
-                      >
-                        <span className="wallet-chip-dot" style={{ background: w.color }} aria-hidden />
-                        {w.name}
-                      </button>
-                    ))}
+                  {wallets.map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      className={`chip chip-with-icon ${walletId === w.id ? 'active' : ''}`}
+                      onClick={() => setWalletId(w.id)}
+                    >
+                      <span className="wallet-chip-dot" style={{ background: w.color }} aria-hidden />
+                      {w.name}
+                    </button>
+                  ))}
                 </div>
-                {wallets.filter((w) => w.bucket === bucket).length === 0 && (
-                  <p className="hint">该预算桶暂无小荷包，可在「小荷包」页新建</p>
+                {wallets.length === 0 && (
+                  <p className="hint">暂无小荷包，可在「小荷包」页新建</p>
                 )}
               </div>
 
@@ -413,9 +384,6 @@ export function AddTransaction({ store, onDone }: Props) {
             <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择支出类型">
               <div className="modal-handle" />
               <h2 className="glass-title">选择支出类型</h2>
-              <p className="hint" style={{ marginBottom: 12 }}>
-                基础 3500 / 专项 1500 · 点选后进入扣款方法
-              </p>
               <p className="sheet-section-label">基础生活</p>
               <div className="cat-grid">
                 {expenseCats
@@ -509,12 +477,6 @@ export function AddTransaction({ store, onDone }: Props) {
         <div className="chip-row" style={{ marginBottom: 12 }}>
           <button type="button" className="chip" onClick={() => setMode('hub')}>
             ← 返回
-          </button>
-          <button type="button" className="chip" onClick={startExpenseWizard}>
-            点记账
-          </button>
-          <button type="button" className="chip" onClick={() => setMode('ocr')}>
-            从截图导入
           </button>
         </div>
 

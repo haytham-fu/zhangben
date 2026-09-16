@@ -2,6 +2,9 @@ export type Currency = 'RMB' | 'HKD' | 'USD';
 
 export type Bucket = 'basic' | 'special';
 
+/** Wallet peer-level kind: independent of 基础/专项 nesting; legacy basic/special kept for migration */
+export type WalletBucket = Bucket | 'custom';
+
 export type TxType = 'expense' | 'income';
 
 export type PaymentMethod =
@@ -34,8 +37,12 @@ export interface Wallet {
   id: string;
   name: string;
   color: string;
-  bucket: Bucket;
-  /** RMB allocated from the bucket budget */
+  /**
+   * Optional budget-area hint. New wallets use 'custom' (peer of 基础/专项).
+   * Legacy 'basic' | 'special' values are kept for graceful migration.
+   */
+  bucket: WalletBucket | null;
+  /** RMB allocated to this wallet */
   allocated: number;
   createdAt: string;
 }

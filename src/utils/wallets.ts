@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import type { Bucket, Settings, Transaction, Wallet } from '../types';
+import type { Bucket, Settings, Transaction, Wallet, WalletBucket } from '../types';
 import { budgetStatus, filterMonth, isBudgetExpense, type BudgetStatus } from './budget';
 
 export const WALLET_COLORS = [
@@ -62,7 +62,12 @@ export function pickWalletColor(existing: Wallet[]): string {
   return best;
 }
 
-export function createWallet(bucket: Bucket, existing: Wallet[], allocated = 0): Wallet {
+/** Create an independent peer wallet (bucket defaults to 'custom'). */
+export function createWallet(
+  existing: Wallet[],
+  allocated = 0,
+  bucket: WalletBucket | null = 'custom',
+): Wallet {
   return {
     id: uuid(),
     name: pickCuteName(existing),
@@ -89,10 +94,17 @@ export function walletSpend(
   return Math.round(sum * 100) / 100;
 }
 
+/** Sum of allocated amounts for wallets still tagged with a legacy bucket. */
 export function allocatedSum(wallets: Wallet[], bucket: Bucket): number {
-  return Math.round(
-    wallets.filter((w) => w.bucket === bucket).reduce((s, w) => s + w.allocated, 0) * 100,
-  ) / 100;
+  return (
+    Math.round(
+      wallets.filter((w) => w.bucket === bucket).reduce((s, w) => s + w.allocated, 0) * 100,
+    ) / 100
+  );
+}
+
+export function totalAllocated(wallets: Wallet[]): number {
+  return Math.round(wallets.reduce((s, w) => s + w.allocated, 0) * 100) / 100;
 }
 
 export function unallocated(settings: Settings, wallets: Wallet[], bucket: Bucket): number {
@@ -104,6 +116,12 @@ export function walletStatus(spent: number, allocated: number): BudgetStatus {
   return budgetStatus(spent, allocated);
 }
 
+export function normalizeWalletBucket(raw: unknown): WalletBucket | null {
+  if (raw === 'special' || raw === 'basic' || raw === 'custom') return raw;
+  if (raw == null) return 'custom';
+  return 'custom';
+}
+
 export function normalizeWallet(raw: Partial<Wallet> & { id?: string }): Wallet | null {
   if (!raw || typeof raw !== 'object') return null;
   const id = typeof raw.id === 'string' && raw.id ? raw.id : uuid();
@@ -112,7 +130,7 @@ export function normalizeWallet(raw: Partial<Wallet> & { id?: string }): Wallet 
     typeof raw.color === 'string' && /^#[0-9A-Fa-f]{6}$/.test(raw.color)
       ? raw.color
       : WALLET_COLORS[0];
-  const bucket: Bucket = raw.bucket === 'special' ? 'special' : 'basic';
+  const bucket = normalizeWalletBucket(raw.bucket);
   const allocated =
     typeof raw.allocated === 'number' && Number.isFinite(raw.allocated)
       ? Math.max(0, Math.round(raw.allocated * 100) / 100)
