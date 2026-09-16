@@ -112,7 +112,7 @@ export function TransactionList({ store }: Props) {
           >
             <div className="modal-handle" />
             <h2 className="glass-title">筛选</h2>
-
+            <div className="modal-sheet-body">
             <section className="tx-filter-section">
               <p className="sheet-section-label tx-filter-section-title">收支</p>
               <div className="chip-row">
@@ -157,10 +157,11 @@ export function TransactionList({ store }: Props) {
                 ))}
               </div>
             </section>
-
+            </div>
+            <div className="modal-actions">
             <button
               type="button"
-              className="btn btn-primary btn-block section-gap"
+              className="btn btn-primary btn-block"
               onClick={closeFilterSheet}
             >
               完成
@@ -172,6 +173,7 @@ export function TransactionList({ store }: Props) {
             >
               退出
             </button>
+            </div>
           </div>
         </div>
         </ModalPortal>
@@ -188,6 +190,7 @@ export function TransactionList({ store }: Props) {
           >
             <div className="modal-handle" />
             <h2 className="glass-title">记录详情</h2>
+            <div className="modal-sheet-body">
             <p style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: 700 }}>
               {categories.find((c) => c.id === selected.categoryId)?.icon}{' '}
               {categories.find((c) => c.id === selected.categoryId)?.name}
@@ -213,9 +216,11 @@ export function TransactionList({ store }: Props) {
             )}
             {selected.isGroceryPurchase && <p className="hint">买菜购置（已入冰箱）</p>}
             {selected.note && <p style={{ marginTop: 8 }}>备注：{selected.note}</p>}
+            </div>
+            <div className="modal-actions">
             <button
               type="button"
-              className="btn btn-danger btn-block section-gap"
+              className="btn btn-danger btn-block"
               onClick={() => {
                 deleteTransaction(selected.id);
                 setSelected(null);
@@ -225,11 +230,12 @@ export function TransactionList({ store }: Props) {
             </button>
             <button
               type="button"
-              className="btn btn-secondary btn-block section-gap"
+              className="btn btn-secondary btn-block"
               onClick={() => setSelected(null)}
             >
               退出
             </button>
+            </div>
           </div>
         </div>
         </ModalPortal>

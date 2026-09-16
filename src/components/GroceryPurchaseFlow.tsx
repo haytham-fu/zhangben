@@ -484,6 +484,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
             >
               <div className="modal-handle" />
               <h2 className="glass-title">选择扣款方法</h2>
+              <div className="modal-sheet-body">
               <div className="pay-sheet-grid">
                 {(['octopus', 'alipay', 'wechat', 'bank', 'credit', 'other'] as PaymentMethod[]).map(
                   (m) => (
@@ -499,9 +500,11 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                   ),
                 )}
               </div>
+              </div>
+              <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary btn-block section-gap"
+                className="btn btn-secondary btn-block"
                 onClick={() => setPayOpen(false)}
               >
                 返回
@@ -516,6 +519,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               >
                 退出
               </button>
+              </div>
             </div>
           </div>
         </ModalPortal>

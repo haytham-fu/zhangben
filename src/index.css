@@ -79,12 +79,19 @@ body,
   min-height: 100dvh;
 }
 
+html {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--bg-grad);
   background-attachment: fixed;
   color: var(--text);
   position: relative;
   isolation: isolate;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Flowing page blobs — larger / faster when dynamic (still soft, not harsh) */
@@ -102,7 +109,6 @@ body::after {
   filter: blur(36px);
   background: radial-gradient(circle at 32% 28%, var(--bg-blob-a), transparent 58%);
   transition: opacity 0.45s ease;
-  will-change: transform;
 }
 
 body::after {
@@ -128,7 +134,6 @@ body::after {
   filter: blur(42px);
   background: radial-gradient(circle at 45% 40%, var(--bg-blob-c), transparent 62%);
   transition: opacity 0.45s ease;
-  will-change: transform;
 }
 
 html[data-bg-motion="dynamic"] body {
@@ -140,6 +145,7 @@ html[data-bg-motion="dynamic"] body::before,
 html[data-bg-motion="dynamic"] body::after,
 html[data-bg-motion="dynamic"] #root::before {
   opacity: 1;
+  will-change: transform;
 }
 
 html[data-bg-motion="dynamic"] body::before {
@@ -207,6 +213,7 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  touch-action: manipulation;
 }
 
 a {
@@ -219,6 +226,7 @@ a {
   min-height: 100dvh;
   padding: 12px 14px calc(88px + var(--safe-bottom));
   position: relative;
+  overscroll-behavior-y: contain;
 }
 
 .app-header {
@@ -323,6 +331,7 @@ a {
 /* Tab / page content enter */
 .page-view {
   animation: page-enter var(--dur-med) var(--ease-out) both;
+  /* transform only during enter; final keyframe is identity so fixed dock stays viewport-fixed */
 }
 
 /* Glass card — tuned blur to cut re-paints; enter + light press */
@@ -479,6 +488,7 @@ a {
   min-height: 44px;
   padding: 0;
   border-radius: var(--radius-pill);
+  touch-action: manipulation;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(191, 219, 254, 0.9);
   color: var(--blue-700);
@@ -538,6 +548,7 @@ a {
   border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-weight: 600;
+  touch-action: manipulation;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.7), rgba(239, 246, 255, 0.45));
   backdrop-filter: blur(10px) saturate(160%);
   -webkit-backdrop-filter: blur(10px) saturate(160%);
@@ -1082,9 +1093,9 @@ a {
 .modal-sheet {
   width: min(420px, 100%);
   max-height: min(90dvh, 100%);
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: linear-gradient(
     165deg,
     rgba(255, 255, 255, 0.94) 0%,
@@ -1101,8 +1112,21 @@ a {
     0 2px 12px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
   animation: modal-card-in 480ms var(--ease-spring-soft) both;
-  will-change: transform, opacity;
   overscroll-behavior: contain;
+  flex-shrink: 0;
+}
+
+.modal-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.modal-sheet > .modal-handle,
+.modal-sheet > .glass-title {
   flex-shrink: 0;
 }
 
@@ -1111,8 +1135,7 @@ a {
   flex-direction: column;
   gap: 10px;
   margin-top: 16px;
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   padding-top: 8px;
   background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.95) 30%);
 }
@@ -1124,6 +1147,17 @@ a {
   background: rgba(148, 163, 184, 0.5);
   margin: 0 auto 12px;
 }
+
+/* Pause heavy dynamic bg filters while a modal is open (scroll/GPU calm) */
+html[data-modal-open="true"][data-bg-motion="dynamic"] body {
+  animation-play-state: paused;
+}
+html[data-modal-open="true"][data-bg-motion="dynamic"] body::before,
+html[data-modal-open="true"][data-bg-motion="dynamic"] body::after,
+html[data-modal-open="true"][data-bg-motion="dynamic"] #root::before {
+  animation-play-state: paused;
+}
+
 
 .hint {
   font-size: 0.75rem;
@@ -1439,6 +1473,7 @@ a {
     border-color var(--dur-fast) ease,
     background var(--dur-fast) ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .pay-sheet-btn:active {
@@ -1939,7 +1974,6 @@ html[data-palette="lilac"] {
   border-radius: 50%;
   filter: blur(28px);
   opacity: 0.85;
-  will-change: transform;
 }
 
 .advice-blob-a {
@@ -1966,6 +2000,9 @@ html[data-palette="lilac"] {
   background: radial-gradient(circle, var(--advice-c), transparent 70%);
 }
 
+.advice-flow--animated .advice-blob {
+  will-change: transform;
+}
 .advice-flow--animated .advice-blob-a {
   animation: advice-flow-a 14s ease-in-out infinite alternate;
 }
@@ -2024,6 +2061,9 @@ html[data-palette="lilac"] {
   .advice-flow--animated .advice-blob-b,
   .advice-flow--animated .advice-blob-c {
     animation: none !important;
+  }
+  .advice-flow--animated .advice-blob {
+    will-change: auto;
   }
 }
 
@@ -2386,6 +2426,7 @@ html[data-palette="lilac"] {
   -webkit-backdrop-filter: var(--glass-blur);
   cursor: pointer;
   color: inherit;
+  touch-action: manipulation;
   transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
@@ -2539,6 +2580,8 @@ html[data-palette="lilac"] {
   z-index: 9000;
   padding: 10px 14px calc(12px + var(--safe-bottom) + var(--dock-height));
   pointer-events: none;
+  transform: translateZ(0);
+  overscroll-behavior: contain;
 }
 
 .cook-sticky-inner {

@@ -522,6 +522,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择支出类型" onClick={(e) => e.stopPropagation()}>
               <div className="modal-handle" />
               <h2 className="glass-title">选择支出类型</h2>
+              <div className="modal-sheet-body">
               <p className="sheet-section-label">基础生活</p>
               <div className="cat-grid">
                 {expenseCats
@@ -564,9 +565,12 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                     </button>
                   ))}
               </div>
-              <button type="button" className="btn btn-secondary btn-block section-gap" onClick={() => setMode('hub')}>
+              </div>
+              <div className="modal-actions">
+              <button type="button" className="btn btn-secondary btn-block" onClick={() => setMode('hub')}>
                 退出
               </button>
+              </div>
             </div>
           </div>
           </ModalPortal>
@@ -579,6 +583,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="吃饭方式" onClick={(e) => e.stopPropagation()}>
               <div className="modal-handle" />
               <h2 className="glass-title">吃饭方式</h2>
+              <div className="modal-sheet-body">
               <p className="hint" style={{ marginBottom: 12 }}>
                 已选：🍜 吃饭（基础）
               </p>
@@ -602,9 +607,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   <span className="hint">用库存食材均摊记一顿</span>
                 </button>
               </div>
+              </div>
+              <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary btn-block section-gap"
+                className="btn btn-secondary btn-block"
                 onClick={() => setWizardStep('category')}
               >
                 返回改类型
@@ -616,6 +623,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               >
                 退出
               </button>
+              </div>
             </div>
           </div>
           </ModalPortal>
@@ -627,6 +635,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             <div className="modal-sheet" role="dialog" aria-modal="true" aria-label="选择扣款方法" onClick={(e) => e.stopPropagation()}>
               <div className="modal-handle" />
               <h2 className="glass-title">选择扣款方法</h2>
+              <div className="modal-sheet-body">
               <p className="hint" style={{ marginBottom: 8 }}>
                 已选：{selected?.icon} {selected?.name}（{bucket === 'special' ? '专项' : '基础'}）
               </p>
@@ -648,9 +657,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   </button>
                 ))}
               </div>
+              </div>
+              <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary btn-block section-gap"
+                className="btn btn-secondary btn-block"
                 onClick={() =>
                   setWizardStep(categoryId === 'food' ? 'foodWhere' : 'category')
                 }
@@ -660,6 +671,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               <button type="button" className="btn btn-ghost btn-block" onClick={() => setMode('hub')}>
                 退出
               </button>
+              </div>
             </div>
           </div>
           </ModalPortal>

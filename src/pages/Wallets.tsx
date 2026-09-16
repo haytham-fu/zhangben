@@ -382,6 +382,7 @@ export function WalletsPage({ store }: Props) {
             >
               <div className="modal-handle" />
               <h2 className="glass-title">新建小荷包</h2>
+              <div className="modal-sheet-body">
               <p className="hint">只需名称和颜色；金额请创建后用「转入」从本月预算剩余存入。</p>
               <div className="field section-gap">
                 <label>名称</label>
@@ -405,6 +406,7 @@ export function WalletsPage({ store }: Props) {
                     />
                   ))}
                 </div>
+              </div>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-primary btn-block" onClick={confirmAdd}>
@@ -433,6 +435,7 @@ export function WalletsPage({ store }: Props) {
               <h2 className="glass-title">
                 {transfer.direction === 'in' ? '转入' : '转出'} · {transfer.name}
               </h2>
+              <div className="modal-sheet-body">
               {transfer.direction === 'in' && (
                 <div className="field section-gap">
                   <label>来源</label>
@@ -468,6 +471,7 @@ export function WalletsPage({ store }: Props) {
                   onChange={(e) => setTransfer({ ...transfer, amount: e.target.value })}
                 />
               </div>
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-primary btn-block" onClick={confirmTransfer}>
                   确认{transfer.direction === 'in' ? '转入' : '转出'}
@@ -493,6 +497,7 @@ export function WalletsPage({ store }: Props) {
             >
               <div className="modal-handle" />
               <h2 className="glass-title">{edit.isPig ? '编辑小钱猪' : '编辑小荷包'}</h2>
+              <div className="modal-sheet-body">
               {!edit.isPig && (
                 <div className="field section-gap">
                   <label>名称</label>
@@ -522,6 +527,7 @@ export function WalletsPage({ store }: Props) {
                     />
                   ))}
                 </div>
+              </div>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-primary btn-block" onClick={saveEdit}>
