@@ -2644,3 +2644,62 @@ html[data-palette="lilac"] {
     transform: none;
   }
 }
+
+/* 小钱猪 hero */
+.pig-hero {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--wallet-color, #f472b6) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wallet-color, #f472b6) 28%, transparent);
+}
+.pig-hero-icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+.pig-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+.pig-hero-name {
+  display: block;
+  font-size: 1.05rem;
+}
+.pig-hero-balance {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--wallet-color, #f472b6) 70%, #1e293b);
+}
+.pig-hero-balance.debt {
+  color: #dc2626;
+}
+.pig-transfer-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pig-transfer-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.pig-transfer-list .pos {
+  color: #059669;
+  font-variant-numeric: tabular-nums;
+}
+.pig-transfer-list .neg {
+  color: #dc2626;
+  font-variant-numeric: tabular-nums;
+}
+.pig-history summary {
+  cursor: pointer;
+  user-select: none;
+}

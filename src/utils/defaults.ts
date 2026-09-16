@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showGoldMountain: true,
   themePalette: 'sky',
   bgMotion: 'dynamic',
+  settledMonths: [],
 };
 
 export const DEFAULT_CATEGORIES: Category[] = [

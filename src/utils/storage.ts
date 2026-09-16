@@ -8,7 +8,7 @@ import {
   normalizePreferredCurrencies,
 } from './currency';
 import { costPerMeal, roundMoney } from './grocery';
-import { normalizeWallet } from './wallets';
+import { ensurePigWallet, normalizeWallet } from './wallets';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -45,13 +45,16 @@ function normalizeTransactions(list: unknown): Transaction[] {
 }
 
 function normalizeWallets(list: unknown): Wallet[] {
-  if (!Array.isArray(list)) return [...DEFAULT_WALLETS];
   const out: Wallet[] = [];
-  for (const item of list) {
-    const w = normalizeWallet(item as Partial<Wallet>);
-    if (w) out.push(w);
+  if (Array.isArray(list)) {
+    for (const item of list) {
+      const w = normalizeWallet(item as Partial<Wallet>);
+      if (w) out.push(w);
+    }
+  } else {
+    out.push(...DEFAULT_WALLETS);
   }
-  return out;
+  return ensurePigWallet(out);
 }
 
 function normalizePantryItems(list: unknown): PantryItem[] {
@@ -162,6 +165,9 @@ export function normalizeSettings(raw: unknown): Settings {
       typeof partial.liveRatesUpdatedAt === 'string' ? partial.liveRatesUpdatedAt : null,
     preferredCurrencies: normalizePreferredCurrencies(partial.preferredCurrencies),
     fxRateMode: partial.fxRateMode === 'live' ? 'live' : 'fixed',
+    settledMonths: Array.isArray(partial.settledMonths)
+      ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
+      : [],
   };
 }
 

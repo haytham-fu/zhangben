@@ -60,6 +60,21 @@ export interface Category {
   allowPayment?: boolean;
 }
 
+/** Transfer into/out of a 小荷包 (piggy-bank style) */
+export type WalletTransferSource = 'total' | 'basic' | 'special' | 'settle';
+
+export interface WalletTransfer {
+  id: string;
+  direction: 'in' | 'out';
+  amount: number;
+  /** Where money came from / went to conceptually */
+  source?: WalletTransferSource;
+  /** Month key for settlement transfers, e.g. 2026-09 */
+  ym?: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface Wallet {
   id: string;
   name: string;
@@ -69,8 +84,17 @@ export interface Wallet {
    * Legacy 'basic' | 'special' values are kept for graceful migration.
    */
   bucket: WalletBucket | null;
-  /** RMB allocated to this wallet */
-  allocated: number;
+  /** Current RMB in this 小荷包 (filled via 转入 / 结算; spend-from-jar decreases it) */
+  balance: number;
+  /** Optional savings target (edit only; progress bar when set) */
+  target?: number | null;
+  /** Optional transfer history */
+  transfers?: WalletTransfer[];
+  /**
+   * System flag: 「小钱猪」 auto overflow/shortfall jar.
+   * Not user-deletable; always ensured present.
+   */
+  systemKey?: 'pig' | null;
   createdAt: string;
 }
 
@@ -160,6 +184,11 @@ export interface Settings {
   themePalette: ThemePalette;
   /** Static vs flowing animated page background */
   bgMotion: BgMotion;
+  /**
+   * Month keys (yyyy-MM) already settled into 「小钱猪」.
+   * Prevents double settlement for the same month.
+   */
+  settledMonths?: string[];
 }
 
 export interface AppState {
