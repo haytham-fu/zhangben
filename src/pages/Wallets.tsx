@@ -310,11 +310,6 @@ export function WalletsPage({ store }: Props) {
       <PantryPanel store={store} />
 
       <GlassCard title="我的小荷包">
-        {userWallets.length === 0 ? (
-          <p className="hint" style={{ margin: 0 }}>
-            还没有自建小荷包。点上方「新建」只需填名称和颜色，再用「转入」存钱。
-          </p>
-        ) : (
           <ul className="wallet-list">
             {userWallets.map((w) => {
               const saved = w.balance;
@@ -373,7 +368,6 @@ export function WalletsPage({ store }: Props) {
               );
             })}
           </ul>
-        )}
       </GlassCard>
 
       {adding && (
