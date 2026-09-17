@@ -3,6 +3,7 @@ import { EmptyState } from '../components/EmptyState';
 import { IconEmptyLedger } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
 import { ModalPortal } from '../components/ModalPortal';
+import { EditTransactionSheet } from '../components/EditTransactionSheet';
 import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
 import type { PaymentMethod, Transaction } from '../types';
@@ -27,6 +28,7 @@ export function TransactionList({ store }: Props) {
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const list = useMemo(() => {
     let txs = filterMonth(transactions, ym);
@@ -220,6 +222,16 @@ export function TransactionList({ store }: Props) {
             <div className="modal-actions">
             <button
               type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => {
+                setEditing(selected);
+                setSelected(null);
+              }}
+            >
+              编辑
+            </button>
+            <button
+              type="button"
               className="btn btn-danger btn-block"
               onClick={() => {
                 deleteTransaction(selected.id);
@@ -239,6 +251,15 @@ export function TransactionList({ store }: Props) {
           </div>
         </div>
         </ModalPortal>
+      )}
+
+      {editing && (
+        <EditTransactionSheet
+          key={editing.id}
+          tx={editing}
+          store={store}
+          onClose={() => setEditing(null)}
+        />
       )}
     </>
   );
