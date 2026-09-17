@@ -47,7 +47,7 @@ function statusClass(s: BudgetStatus): string {
 
 export function CalendarPage({ store }: Props) {
   const { settings, transactions, categoryMap, walletMap, todayStr, monthStats, setSatModeForDate } = store;
-  const planOn = settings.dailyPlanCompareEnabled !== false;
+  const planOn = settings.dailyPlanCompareEnabled === true;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   // Anchor "today" from local YYYY-MM-DD to avoid parseISO UTC off-by-one
   const today = parseLocalDate(todayStr);

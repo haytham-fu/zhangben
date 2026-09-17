@@ -4,8 +4,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { NavCuteIcon, type NavIconId } from './CuteIcons';
 
@@ -34,8 +32,6 @@ interface BlobRect {
 
 const PAD_X = 4;
 const PAD_Y = 3;
-/** Delay pointer capture until finger moves this far — keeps iOS taps firing onClick. */
-const DRAG_THRESHOLD_PX = 8;
 
 function rectForButton(nav: HTMLElement, btn: HTMLElement): BlobRect {
   const nr = nav.getBoundingClientRect();
@@ -48,26 +44,20 @@ function rectForButton(nav: HTMLElement, btn: HTMLElement): BlobRect {
   };
 }
 
+/**
+ * Dock switching is button onClick only (reliable on iOS).
+ * Liquid glass blob animates itself when `active` changes — no finger-drag / setPointerCapture.
+ */
 export function BottomNav({ active, onChange }: Props) {
   const navRef = useRef<HTMLElement>(null);
   const btnRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
   const [blob, setBlob] = useState<BlobRect>({ left: 0, width: 0, height: 0, top: 0 });
   const [ready, setReady] = useState(false);
   const [bump, setBump] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [stretch, setStretch] = useState(1);
   const [travelDir, setTravelDir] = useState<1 | -1 | 0>(0);
   const reduceMotion = useRef(false);
   const prevActive = useRef(active);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    lastX: number;
-    moved: boolean;
-    captured: boolean;
-    base: BlobRect;
-  } | null>(null);
-  const suppressClick = useRef(false);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -88,16 +78,13 @@ export function BottomNav({ active, onChange }: Props) {
   }, [active]);
 
   useLayoutEffect(() => {
-    if (dragging) return;
     measureActive();
-  }, [measureActive, active, dragging]);
+  }, [measureActive, active]);
 
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
-    const ro = new ResizeObserver(() => {
-      if (!dragRef.current) measureActive();
-    });
+    const ro = new ResizeObserver(() => measureActive());
     ro.observe(nav);
     window.addEventListener('resize', measureActive);
     return () => {
@@ -106,7 +93,7 @@ export function BottomNav({ active, onChange }: Props) {
     };
   }, [measureActive]);
 
-  // Morph stretch when tab changes (tap or snap)
+  // Morph stretch when tab changes via onClick
   useEffect(() => {
     if (reduceMotion.current) {
       setBump(false);
@@ -140,158 +127,17 @@ export function BottomNav({ active, onChange }: Props) {
     };
   }, [active]);
 
-  const nearestTab = useCallback(
-    (clientX: number): TabId => {
-      let best: TabId = active;
-      let bestDist = Infinity;
-      for (const t of TABS) {
-        const btn = btnRefs.current[t.id];
-        if (!btn) continue;
-        const r = btn.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const d = Math.abs(cx - clientX);
-        if (d < bestDist) {
-          bestDist = d;
-          best = t.id;
-        }
-      }
-      return best;
-    },
-    [active],
-  );
-
-  const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
-    if (reduceMotion.current) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const nav = navRef.current;
-    if (!nav) return;
-    // Do NOT setPointerCapture here — on iOS that steals the button click.
-    // Capture only after movement exceeds DRAG_THRESHOLD_PX.
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      lastX: e.clientX,
-      moved: false,
-      captured: false,
-      base: { ...blob },
-    };
-    suppressClick.current = false;
-  };
-
-  const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const dx = e.clientX - drag.startX;
-    if (!drag.moved) {
-      if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
-      drag.moved = true;
-      suppressClick.current = true;
-      setDragging(true);
-      if (!drag.captured) {
-        try {
-          nav.setPointerCapture(e.pointerId);
-          drag.captured = true;
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
-    const nr = nav.getBoundingClientRect();
-    const w = drag.base.width;
-    const center = e.clientX - nr.left;
-    let left = center - w / 2;
-    const minL = PAD_X;
-    const maxL = Math.max(minL, nr.width - w - PAD_X);
-    left = Math.max(minL, Math.min(maxL, left));
-
-    const vel = e.clientX - drag.lastX;
-    drag.lastX = e.clientX;
-    const dir: 1 | -1 | 0 =
-      vel > 0.5 ? 1 : vel < -0.5 ? -1 : dx > 0 ? 1 : dx < 0 ? -1 : 0;
-    const stretchAmt = Math.min(
-      1.38,
-      1 + Math.abs(dx) / (nr.width * 0.9) + Math.min(0.12, Math.abs(vel) / 40),
-    );
-
-    setTravelDir(dir);
-    setStretch(stretchAmt);
-    setBlob({
-      left,
-      width: w,
-      height: drag.base.height,
-      top: drag.base.top,
-    });
-  };
-
-  const endDrag = (e: ReactPointerEvent<HTMLElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    dragRef.current = null;
-    if (drag.captured) {
-      try {
-        navRef.current?.releasePointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (!drag.moved) {
-      // Pure tap: leave click to the button → onChange → blob spring-slides.
-      setDragging(false);
-      setStretch(1);
-      setTravelDir(0);
-      suppressClick.current = false;
-      return;
-    }
-
-    const next = nearestTab(e.clientX);
-    setDragging(false);
-    if (next !== active) {
-      onChange(next);
-    } else {
-      measureActive();
-      setStretch(1.08);
-      setBump(true);
-      window.setTimeout(() => {
-        setStretch(1);
-        setBump(false);
-        setTravelDir(0);
-      }, 420);
-    }
-  };
-
-  const onClickCapture = (e: ReactMouseEvent) => {
-    if (!suppressClick.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    suppressClick.current = false;
-  };
-
-  const scaleX = dragging || stretch !== 1 ? stretch : 1;
+  const scaleX = stretch !== 1 ? stretch : 1;
   const origin =
     travelDir > 0 ? 'left center' : travelDir < 0 ? 'right center' : 'center center';
 
   return (
-    <nav
-      ref={navRef}
-      className="bottom-nav bottom-nav-6 liquid-dock"
-      aria-label="主导航"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onClickCapture={onClickCapture}
-    >
+    <nav ref={navRef} className="bottom-nav bottom-nav-6 liquid-dock" aria-label="主导航">
       <span
         className={[
           'dock-liquid-blob',
           ready ? 'dock-liquid-blob--ready' : '',
           bump ? 'dock-liquid-blob--bump' : '',
-          dragging ? 'dock-liquid-blob--dragging' : '',
           stretch > 1.02 ? 'dock-liquid-blob--morph' : '',
         ]
           .filter(Boolean)

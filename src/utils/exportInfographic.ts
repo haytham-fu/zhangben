@@ -110,7 +110,7 @@ export interface InfographicOptions {
 export async function renderLedgerInfographic(opts: InfographicOptions): Promise<Blob> {
   const { ym, state } = opts;
   const settings: Settings = state.settings;
-  const planOn = settings.dailyPlanCompareEnabled !== false;
+  const planOn = settings.dailyPlanCompareEnabled === true;
   const monthTxs = filterMonth(state.transactions, ym);
   const includeOpts = { includeSpecial: settings.includeSpecialInAdvice };
   const basicUsed = monthBasicUsed(state.transactions, state.settings, ym, includeOpts);

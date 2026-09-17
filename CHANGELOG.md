@@ -1,5 +1,13 @@
 # 更新日志
 
+## 2026-09-17（顶栏剩余 + 空白默认 + 底栏点按）
+
+- 顶栏副标题：预算已设时显示**实时剩余**（`monthStats.totalRemain`），不再只显示静态「3500 + 1500」封顶；未设预算显示「预算未设置」
+- 空白账本默认：基础/专项预算与日计划均为 0，计划对照关闭，`monthOpening` 为空；`STORAGE_KEY` 升至 `zhangben-v2`（一次性丢弃旧 localStorage）
+- 底栏：仅按钮 `onClick` 切页（去掉 pointer-drag / setPointerCapture）；液态 blob 随 `active` 弹簧滑动；blob `pointer-events: none`，按钮 `z-index` 可点
+- 日历 / 设置 / 导出：计划对照统一为 `dailyPlanCompareEnabled === true`（与总览一致）
+- 总览「本月已用 / 本月剩余」与进度条一律走 `monthStats`，记账后即时更新
+
 ## 2026-09-17（动效与修复）
 
 - 修复：底栏点按切页（延迟 pointer capture，液态玻璃随 transform 弹簧滑向目标项）

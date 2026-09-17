@@ -24,18 +24,29 @@ interface Props {
 
 export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, monthStats, setSatModeForDate } = store;
-  const planOn = settings.dailyPlanCompareEnabled !== false;
+  const planOn = settings.dailyPlanCompareEnabled === true;
+  const budgetsSet = (settings.basicBudget ?? 0) > 0 || (settings.specialBudget ?? 0) > 0;
+  const planUseful = planOn && (settings.dailyPlan
+    ? Object.values(settings.dailyPlan).some((v) => typeof v === 'number' && v > 0)
+    : false);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const monthTxs = filterMonth(transactions, currentYm);
-  const { basicUsed, specialUsed, totalBudget, totalUsed, todayUsed, todayPlan } = monthStats;
+  const { basicUsed, specialUsed, totalBudget, totalUsed, totalRemain, todayUsed, todayPlan } = monthStats;
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
-  const advice = planOn
+  const advice = planUseful && budgetsSet
     ? buildAdvice(basicUsed, specialUsed, settings, currentYm, new Date())
-    : [
-        `本月基础净支出 ${formatRmb(basicUsed)}，专项 ${formatRmb(specialUsed)}，合计 ${formatRmb(totalUsed)}。`,
-        '已关闭「计划生活费每天支出对照」，此处仅作简单汇总。',
-      ];
+    : budgetsSet
+      ? [
+          `本月基础净支出 ${formatRmb(basicUsed)}，专项 ${formatRmb(specialUsed)}，合计 ${formatRmb(totalUsed)}。`,
+          planOn
+            ? '日计划额度仍为 0，可在设置中填写每日计划后再对照。'
+            : '已关闭「计划生活费每天支出对照」，此处仅作简单汇总。',
+        ]
+      : [
+          '尚未设置月预算。可在「记账」顶栏或设置中填写基础/专项预算。',
+          '当前为空白账本：记一笔后这里会显示本月汇总。',
+        ];
 
   const recent = [...transactions].slice(0, 8);
 
@@ -52,13 +63,13 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   return (
     <>
       <AdviceFlowCard
-        title={planOn ? '节奏建议' : '本月概览'}
+        title={planUseful && budgetsSet ? '节奏建议' : '本月概览'}
         items={advice}
         animated={adviceAnimated}
       />
 
       <GlassCard title={`今日 · ${weekdayLabel(todayStr)} ${format(new Date(), 'M/d')}`}>
-        {planOn ? (
+        {planUseful ? (
           <ProgressBar
             label="今日基础 vs 计划"
             used={Math.max(0, todayUsed)}
@@ -67,12 +78,12 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
             extra={todayUsed < 0 ? `含收入抵扣后净额 ${formatRmb(todayUsed)}` : undefined}
           />
         ) : null}
-        <div className={`stat-grid ${planOn ? 'section-gap' : ''}`}>
+        <div className={`stat-grid ${planUseful ? 'section-gap' : ''}`}>
           <div className="stat-pill">
             <div className="k">今日净支出</div>
             <div className="v">{formatRmb(todayUsed)}</div>
           </div>
-          {planOn ? (
+          {planUseful ? (
             <div className="stat-pill">
               <div className="k">今日计划</div>
               <div className="v">{formatRmb(todayPlan)}</div>
@@ -84,7 +95,7 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
             </div>
           )}
         </div>
-        {planOn && isSat && (
+        {planUseful && isSat && (
           <div className="section-gap">
             <p className="hint" style={{ marginBottom: 8 }}>
               周六模式（影响今日计划）
@@ -109,8 +120,8 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
         )}
       </GlassCard>
 
-      <GlassCard title={planOn ? '本月预算' : '本月汇总'}>
-        {settings.showMonthlyBudgetProgress !== false && (
+      <GlassCard title={budgetsSet ? (planUseful ? '本月预算' : '本月汇总') : '本月汇总'}>
+        {budgetsSet && settings.showMonthlyBudgetProgress !== false && (
           <div className="month-budget-hero">
             <ProgressBar
               label="本月合计 vs 预算"
@@ -133,17 +144,21 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
                 <div
                   className="v"
                   style={{
-                    color:
-                      totalBudget - totalUsed < 0 ? 'var(--red-500)' : undefined,
+                    color: totalRemain < 0 ? 'var(--red-500)' : undefined,
                   }}
                 >
-                  {formatRmb(totalBudget - totalUsed)}
+                  {formatRmb(totalRemain)}
                 </div>
               </div>
             </div>
           </div>
         )}
-        {planOn ? (
+        {!budgetsSet && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            预算未设置 · 仅显示实际净支出。可在「记账」顶栏填写基础/专项预算。
+          </p>
+        )}
+        {planUseful && budgetsSet ? (
           <>
             <ProgressBar
               label={`基础生活 ${settings.basicBudget}`}

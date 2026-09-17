@@ -2,19 +2,19 @@ import type { Category, Settings, Wallet } from '../types';
 import { DEFAULT_FIXED_RATES, DEFAULT_PREFERRED_CURRENCIES } from './currency';
 
 export const DEFAULT_SETTINGS: Settings = {
-  /** Generic starter budgets — users edit or import a personal plan pack */
-  basicBudget: 3000,
-  specialBudget: 1000,
+  /** Blank ledger until user sets budgets in Settings / 记账顶栏 / profile import */
+  basicBudget: 0,
+  specialBudget: 0,
   fixedRates: { ...DEFAULT_FIXED_RATES },
   dailyPlan: {
-    mon: 100,
-    tue: 100,
-    wed: 100,
-    thu: 100,
-    fri: 100,
-    satPlay: 150,
-    satStay: 80,
-    sun: 100,
+    mon: 0,
+    tue: 0,
+    wed: 0,
+    thu: 0,
+    fri: 0,
+    satPlay: 0,
+    satStay: 0,
+    sun: 0,
   },
   defaultSatMode: 'play',
   satModeOverrides: {},
@@ -53,7 +53,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'other_special', name: '其他专项', bucket: 'special', icon: '📦', allowPayment: true },
 ];
 
-export const STORAGE_KEY = 'zhangben-v1';
+/** Bumped from v1 → v2 so prior localStorage (e.g. 3500+1500) is not reused. */
+export const STORAGE_KEY = 'zhangben-v2';
 
 /** Start empty — user creates peer-level 小荷包 (siblings of 基础/专项) */
 export const DEFAULT_WALLETS: Wallet[] = [];

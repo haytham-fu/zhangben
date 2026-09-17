@@ -811,6 +811,7 @@ a {
 .liquid-dock .nav-item {
   position: relative;
   z-index: 1;
+  pointer-events: auto;
 }
 
 .nav-item.active .nav-icon {

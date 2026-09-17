@@ -27,7 +27,7 @@ export function SettingsPage({ store }: Props) {
   const [profileMsg, setProfileMsg] = useState('');
 
   const dp = settings.dailyPlan;
-  const planOn = settings.dailyPlanCompareEnabled !== false;
+  const planOn = settings.dailyPlanCompareEnabled === true;
 
   function patchPlan(key: keyof typeof dp, value: string) {
     const n = parseFloat(value);
