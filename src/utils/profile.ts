@@ -1,7 +1,9 @@
-import type { MonthOpening, Settings } from '../types';
+import type { Bucket, PaymentMethod, Settings, Transaction, TxKind, TxType } from '../types';
+import { isCurrency } from './currency';
+import { normalizeTxDate } from './dates';
 import { normalizeMonthOpeningForImport, normalizeSettings } from './storage';
 
-/** Portable plan pack (settings overlay). Does not replace transactions. */
+/** Portable plan pack (settings overlay + optional transaction seed). */
 export interface LedgerProfilePack {
   version: number;
   id?: string;
@@ -9,6 +11,8 @@ export interface LedgerProfilePack {
   label?: string;
   description?: string;
   settings: Partial<Settings>;
+  /** Optional txs to merge by id (skip duplicates). Does not replace existing. */
+  transactions?: Transaction[];
 }
 
 /** Strip control chars / brackets; cap length for safe UI display (no HTML injection). */
@@ -33,11 +37,136 @@ function asPlainObject(raw: unknown): Record<string, unknown> | null {
   return o;
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function isTxType(v: unknown): v is TxType {
+  return v === 'expense' || v === 'income';
+}
+
+function isTxKind(v: unknown): v is TxKind {
+  return v === 'normal' || v === 'topup';
+}
+
+function isBucket(v: unknown): v is Bucket {
+  return v === 'basic' || v === 'special';
+}
+
+function isPaymentMethod(v: unknown): v is PaymentMethod {
+  return (
+    v === 'octopus' ||
+    v === 'wechat' ||
+    v === 'alipay' ||
+    v === 'bank' ||
+    v === 'credit' ||
+    v === 'other' ||
+    v === 'none'
+  );
+}
+
+/** Validate & normalize optional profile-pack transactions (skip invalid rows). */
+export function parseProfileTransactions(raw: unknown): Transaction[] {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) {
+    throw new Error('transactions 必须是数组');
+  }
+  if (raw.length > 5000) {
+    throw new Error('transactions 过多');
+  }
+  const out: Transaction[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const o = asPlainObject(item);
+    if (!o) continue;
+    const id = typeof o.id === 'string' ? o.id.trim() : '';
+    if (!id || id.length > 80 || seen.has(id)) continue;
+    if (!isTxType(o.type)) continue;
+    const kind: TxKind = isTxKind(o.kind) ? o.kind : 'normal';
+    const dateRaw = typeof o.date === 'string' ? o.date : '';
+    const date = normalizeTxDate(dateRaw);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const amount = typeof o.amount === 'number' ? o.amount : Number(o.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const currency = isCurrency(o.currency) ? o.currency : null;
+    if (!currency) continue;
+    const rate = typeof o.rate === 'number' ? o.rate : Number(o.rate);
+    if (!Number.isFinite(rate) || rate <= 0) continue;
+    let amountRmb =
+      typeof o.amountRmb === 'number' ? o.amountRmb : Number(o.amountRmb);
+    if (!Number.isFinite(amountRmb) || amountRmb <= 0) {
+      amountRmb = round2(amount * rate);
+    } else {
+      amountRmb = round2(amountRmb);
+    }
+    const categoryId = typeof o.categoryId === 'string' ? o.categoryId.trim() : '';
+    if (!categoryId || categoryId.length > 64) continue;
+    const bucket: Bucket = isBucket(o.bucket) ? o.bucket : 'basic';
+    const note = typeof o.note === 'string' ? o.note.slice(0, 200) : '';
+    const paymentMethod: PaymentMethod = isPaymentMethod(o.paymentMethod)
+      ? o.paymentMethod
+      : kind === 'topup'
+        ? 'octopus'
+        : 'none';
+    const createdAt =
+      typeof o.createdAt === 'string' && o.createdAt
+        ? o.createdAt.slice(0, 40)
+        : `${date}T12:00:00.000Z`;
+    const walletId =
+      typeof o.walletId === 'string' && o.walletId
+        ? o.walletId
+        : o.walletId === null
+          ? null
+          : null;
+
+    seen.add(id);
+    out.push({
+      id,
+      type: o.type,
+      kind,
+      date,
+      amount: round2(amount),
+      currency,
+      rate: round2(rate),
+      amountRmb,
+      categoryId,
+      bucket,
+      note,
+      isSpecial: Boolean(o.isSpecial),
+      isMonthly: Boolean(o.isMonthly),
+      paymentMethod,
+      walletId,
+      createdAt,
+    });
+  }
+  return out;
+}
+
+/**
+ * Merge pack txs into existing by id (skip duplicates).
+ * New txs are prepended (newest-first list convention).
+ */
+export function mergeProfileTransactions(
+  existing: Transaction[],
+  incoming: Transaction[] | undefined,
+): { transactions: Transaction[]; added: number } {
+  if (!incoming || incoming.length === 0) {
+    return { transactions: existing, added: 0 };
+  }
+  const ids = new Set(existing.map((t) => t.id));
+  const toAdd = incoming.filter((t) => t.id && !ids.has(t.id));
+  if (toAdd.length === 0) {
+    return { transactions: existing, added: 0 };
+  }
+  return { transactions: [...toAdd, ...existing], added: toAdd.length };
+}
+
 export function isLedgerProfilePack(raw: unknown): raw is LedgerProfilePack {
   const o = asPlainObject(raw);
   if (!o) return false;
   if (typeof o.version !== 'number' || !Number.isFinite(o.version)) return false;
   if (!asPlainObject(o.settings)) return false;
+  if (o.transactions != null && !Array.isArray(o.transactions)) return false;
   return true;
 }
 
@@ -65,6 +194,7 @@ export function parseProfilePack(text: string): LedgerProfilePack {
         ? safeProfileLabel(o.description, '') || undefined
         : undefined,
     settings: { ...(o.settings as Partial<Settings>) },
+    transactions: parseProfileTransactions(o.transactions),
   };
 }
 
@@ -84,7 +214,7 @@ export function mergeProfileSettings(
   const liveRatesIn = asPlainObject(incoming.liveRates);
   const satIn = asPlainObject(incoming.satModeOverrides);
 
-  let monthOpening: MonthOpening | null | undefined = current.monthOpening;
+  let monthOpening: Settings['monthOpening'] | undefined = current.monthOpening;
   if ('monthOpening' in incoming) {
     const normalized = normalizeMonthOpeningForImport(incoming.monthOpening);
     monthOpening = normalized === undefined ? null : normalized;

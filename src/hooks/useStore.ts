@@ -21,7 +21,7 @@ import { loadState, saveState } from '../utils/storage';
 import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
 import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount } from '../utils/budget';
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
-import { mergeProfileSettings, type LedgerProfilePack } from '../utils/profile';
+import { mergeProfileSettings, mergeProfileTransactions, type LedgerProfilePack } from '../utils/profile';
 import {
   applyTransferToWallet,
   createWallet,
@@ -568,11 +568,18 @@ export function useStore() {
     };
   }, [state.transactions, state.settings, currentYm, todayStr]);
 
-  const applyProfilePack = useCallback((pack: LedgerProfilePack) => {
-    setState((s) => ({
-      ...s,
-      settings: mergeProfileSettings(s.settings, pack),
-    }));
+  const applyProfilePack = useCallback((pack: LedgerProfilePack): number => {
+    let added = 0;
+    setState((s) => {
+      const merged = mergeProfileTransactions(s.transactions, pack.transactions);
+      added = merged.added;
+      return {
+        ...s,
+        settings: mergeProfileSettings(s.settings, pack),
+        transactions: merged.transactions,
+      };
+    });
+    return added;
   }, []);
 
   return {

@@ -254,7 +254,7 @@ export function SettingsPage({ store }: Props) {
 
       <GlassCard title="导入个人计划配置">
         <p className="hint" style={{ marginTop: 0 }}>
-          公网默认为通用账本。若你有独立托管的计划 JSON（预算 / 日计划 / 期初汇总等），可在此导入；不会改动已有流水。
+          公网默认为通用账本。若你有独立托管的计划 JSON（预算 / 日计划 / 期初汇总等，可含流水），可在此导入；按 id 合并流水（跳过已有），不会覆盖已记账。
         </p>
         <button
           type="button"
@@ -276,8 +276,11 @@ export function SettingsPage({ store }: Props) {
             setProfileMsg('');
             try {
               const pack = parseProfilePack(await file.text());
-              applyProfilePack(pack);
-              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name || file.name)}`);
+              const added = applyProfilePack(pack);
+              const label = safeProfileLabel(pack.label || pack.name || file.name);
+              setProfileMsg(
+                added > 0 ? `已应用：${label}（新增 ${added} 笔流水）` : `已应用：${label}`,
+              );
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '导入失败');
             } finally {
@@ -304,8 +307,11 @@ export function SettingsPage({ store }: Props) {
             setProfileMsg('');
             try {
               const pack = await fetchProfileFromUrl(profileUrl);
-              applyProfilePack(pack);
-              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name, '远程配置')}`);
+              const added = applyProfilePack(pack);
+              const label = safeProfileLabel(pack.label || pack.name, '远程配置');
+              setProfileMsg(
+                added > 0 ? `已应用：${label}（新增 ${added} 笔流水）` : `已应用：${label}`,
+              );
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '下载失败');
             } finally {
@@ -333,8 +339,11 @@ export function SettingsPage({ store }: Props) {
             setProfileMsg('');
             try {
               const pack = parseProfilePack(profilePaste);
-              applyProfilePack(pack);
-              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name, '粘贴配置')}`);
+              const added = applyProfilePack(pack);
+              const label = safeProfileLabel(pack.label || pack.name, '粘贴配置');
+              setProfileMsg(
+                added > 0 ? `已应用：${label}（新增 ${added} 笔流水）` : `已应用：${label}`,
+              );
               setProfilePaste('');
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '解析失败');
