@@ -34,6 +34,8 @@ interface BlobRect {
 
 const PAD_X = 4;
 const PAD_Y = 3;
+/** Delay pointer capture until finger moves this far — keeps iOS taps firing onClick. */
+const DRAG_THRESHOLD_PX = 8;
 
 function rectForButton(nav: HTMLElement, btn: HTMLElement): BlobRect {
   const nr = nav.getBoundingClientRect();
@@ -62,6 +64,7 @@ export function BottomNav({ active, onChange }: Props) {
     startX: number;
     lastX: number;
     moved: boolean;
+    captured: boolean;
     base: BlobRect;
   } | null>(null);
   const suppressClick = useRef(false);
@@ -162,19 +165,17 @@ export function BottomNav({ active, onChange }: Props) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const nav = navRef.current;
     if (!nav) return;
+    // Do NOT setPointerCapture here — on iOS that steals the button click.
+    // Capture only after movement exceeds DRAG_THRESHOLD_PX.
     dragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
       lastX: e.clientX,
       moved: false,
+      captured: false,
       base: { ...blob },
     };
     suppressClick.current = false;
-    try {
-      nav.setPointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
@@ -184,10 +185,20 @@ export function BottomNav({ active, onChange }: Props) {
     if (!nav) return;
 
     const dx = e.clientX - drag.startX;
-    if (!drag.moved && Math.abs(dx) < 6) return;
-    drag.moved = true;
-    suppressClick.current = true;
-    setDragging(true);
+    if (!drag.moved) {
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+      drag.moved = true;
+      suppressClick.current = true;
+      setDragging(true);
+      if (!drag.captured) {
+        try {
+          nav.setPointerCapture(e.pointerId);
+          drag.captured = true;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
 
     const nr = nav.getBoundingClientRect();
     const w = drag.base.width;
@@ -220,16 +231,20 @@ export function BottomNav({ active, onChange }: Props) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
     dragRef.current = null;
-    try {
-      navRef.current?.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
+    if (drag.captured) {
+      try {
+        navRef.current?.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
     }
 
     if (!drag.moved) {
+      // Pure tap: leave click to the button → onChange → blob spring-slides.
       setDragging(false);
       setStretch(1);
       setTravelDir(0);
+      suppressClick.current = false;
       return;
     }
 
