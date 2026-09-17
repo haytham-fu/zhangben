@@ -515,6 +515,87 @@ export function useStore() {
     }));
   }, []);
 
+  /**
+   * 补登过往食材：默认只写入冰箱库存；可选同时记一笔过往买菜支出。
+   */
+  const addPantryBackfill = useCallback(
+    (opts: {
+      name: string;
+      kind: GroceryKind;
+      costRmb: number;
+      meals: number;
+      boughtDate: string;
+      note?: string;
+      /** 同时记一笔过往买菜支出（计入预算），默认 false */
+      recordExpense?: boolean;
+      paymentMethod?: PaymentMethod;
+      walletId?: string | null;
+    }) => {
+      setState((s) => {
+        const meals = Math.max(0.1, opts.meals);
+        const cost = roundMoney(Math.max(0, opts.costRmb));
+        const date = normalizeTxDate(opts.boughtDate);
+        const name = opts.name.trim() || '食材';
+        const note = opts.note?.trim();
+        const pantryId = uuid();
+        const recordExpense = Boolean(opts.recordExpense) && cost > 0;
+        const txId = recordExpense ? uuid() : null;
+
+        const pantry: PantryItem = {
+          id: pantryId,
+          name,
+          kind: opts.kind,
+          costRmb: cost,
+          mealsTotal: meals,
+          mealsLeft: meals,
+          costPerMeal: costPerMeal(cost, meals),
+          boughtDate: date,
+          notes: note,
+          purchaseTxId: txId,
+        };
+
+        if (!recordExpense || !txId) {
+          return {
+            ...s,
+            pantryItems: [pantry, ...s.pantryItems],
+          };
+        }
+
+        const tx: Transaction = {
+          id: txId,
+          type: 'expense',
+          kind: 'normal',
+          date,
+          amount: cost,
+          currency: 'RMB',
+          rate: 1,
+          amountRmb: cost,
+          categoryId: 'groceries',
+          bucket: 'basic',
+          note: note || `补登买菜：${name}`,
+          isSpecial: false,
+          isMonthly: false,
+          paymentMethod: opts.paymentMethod ?? 'other',
+          walletId: opts.walletId ?? null,
+          createdAt: new Date().toISOString(),
+          isGroceryPurchase: true,
+          groceryLotIds: [pantryId],
+        };
+        let wallets = s.wallets;
+        if (tx.walletId) {
+          wallets = mapWalletsSpend(wallets, tx.walletId, tx.amountRmb);
+        }
+        return {
+          ...s,
+          transactions: [tx, ...s.transactions],
+          pantryItems: [pantry, ...s.pantryItems],
+          wallets,
+        };
+      });
+    },
+    [],
+  );
+
   const replaceState = useCallback((next: AppState) => {
     setState({
       ...next,
@@ -639,6 +720,7 @@ export function useStore() {
     addGroceryPurchase,
     cookFromPantry,
     removePantryItem,
+    addPantryBackfill,
     replaceState,
     applyProfilePack,
     applySyncPack,

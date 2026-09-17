@@ -1,4 +1,5 @@
 import type { CapUnit, ProductProfile } from '../utils/capacityEstimate';
+import { AmountInput } from './AmountInput';
 import {
   defaultUnit,
   estimateFromCapacity,
@@ -66,8 +67,8 @@ export function CapacityEstimatePanel({
           <div className="row-2" style={{ alignItems: 'flex-end' }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>数量</label>
-              <input
-                inputMode="decimal"
+              <AmountInput
+                step="any"
                 placeholder={
                   capacityUnit === '瓶' || capacityUnit === '支' || capacityUnit === '袋'
                     ? '例如 1'
@@ -75,8 +76,10 @@ export function CapacityEstimatePanel({
                       ? '例如 500'
                       : '例如 400'
                 }
-                value={capacityRaw}
-                onChange={(e) => onCapacityChange(e.target.value, capacityUnit)}
+                value={
+                  Number.isFinite(parseFloat(capacityRaw)) ? parseFloat(capacityRaw) : 0
+                }
+                onValueChange={(n) => onCapacityChange(String(n), capacityUnit)}
               />
             </div>
             <div className="field" style={{ marginBottom: 0 }}>

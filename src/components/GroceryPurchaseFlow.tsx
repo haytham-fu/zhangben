@@ -20,6 +20,7 @@ import {
   roundMoney,
 } from '../utils/grocery';
 import { PAYMENT_LABEL } from '../utils/payment';
+import { AmountInput } from './AmountInput';
 import { CapacityEstimatePanel } from './CapacityEstimatePanel';
 import { IconPayment } from './CuteIcons';
 import { GlassCard } from './GlassCard';
@@ -29,9 +30,10 @@ interface DraftItem {
   key: string;
   kind: GroceryKind;
   name: string;
-  costRaw: string;
-  mealsRaw: string;
-  /** Seasoning capacity */
+  /** 我实际出的钱（对半前总额；AA 在 parsed 里处理） */
+  cost: number;
+  meals: number;
+  /** Seasoning capacity (draft string so empty works) */
   capacityRaw: string;
   capacityUnit: CapUnit;
   /** User manually edited meal count */
@@ -53,17 +55,17 @@ function nextKey() {
 function emptyDraft(kind: GroceryKind, name: string): DraftItem {
   const profile = kind === 'seasoning' ? findProductProfile(name) : null;
   const unit = profile ? defaultUnit(profile) : '瓶';
-  let mealsRaw = '';
+  let meals = 0;
   if (kind === 'seasoning' && profile) {
     const est = estimateFromCapacity(profile, 1, unit);
-    if (est) mealsRaw = String(est.count);
+    if (est) meals = est.count;
   }
   return {
     key: nextKey(),
     kind,
     name,
-    costRaw: '',
-    mealsRaw,
+    cost: 0,
+    meals,
     capacityRaw: kind === 'seasoning' ? '1' : '',
     capacityUnit: unit,
     mealsManual: false,
@@ -115,7 +117,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
         const next = { ...it, capacityRaw, capacityUnit, name: name || it.name };
         if (!it.mealsManual) {
           const est = estimateSeasoningMeals(next.name, parseFloat(capacityRaw), capacityUnit);
-          if (est != null) next.mealsRaw = String(est);
+          if (est != null) next.meals = est;
         }
         return next;
       }),
@@ -128,11 +130,9 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
 
   const parsed = useMemo(() => {
     return items.map((it) => {
-      const rawCost = parseFloat(it.costRaw);
-      const rawMeals = parseFloat(it.mealsRaw);
-      const gross = Number.isFinite(rawCost) && rawCost > 0 ? rawCost : 0;
+      const gross = Number.isFinite(it.cost) && it.cost > 0 ? it.cost : 0;
       const costRmb = aaHalf ? roundMoney(gross / 2) : roundMoney(gross);
-      const meals = Number.isFinite(rawMeals) && rawMeals > 0 ? rawMeals : 0;
+      const meals = Number.isFinite(it.meals) && it.meals > 0 ? it.meals : 0;
       const profile = it.kind === 'seasoning' ? findProductProfile(it.name) : null;
       const capAmt = parseFloat(it.capacityRaw);
       const liveEst =
@@ -337,21 +337,22 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                     <div className="row-2">
                       <div className="field">
                         <label>{aaHalf ? '购入总额（对半前）' : '我实际出的钱'}</label>
-                        <input
-                          inputMode="decimal"
+                        <AmountInput
+                          step="0.01"
                           placeholder="RMB"
-                          value={it.costRaw}
-                          onChange={(e) => updateItem(it.key, { costRaw: e.target.value })}
+                          value={it.cost}
+                          onValueChange={(n) => updateItem(it.key, { cost: n })}
                         />
                       </div>
                       <div className="field">
                         <label>大约可吃几顿</label>
-                        <input
+                        <AmountInput
+                          step="0.1"
                           inputMode="decimal"
                           placeholder="顿"
-                          value={it.mealsRaw}
-                          onChange={(e) =>
-                            updateItem(it.key, { mealsRaw: e.target.value, mealsManual: true })
+                          value={it.meals}
+                          onValueChange={(n) =>
+                            updateItem(it.key, { meals: n, mealsManual: true })
                           }
                         />
                       </div>
