@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { AmountInput } from '../components/AmountInput';
 import { GlassCard } from '../components/GlassCard';
 import type { Store } from '../hooks/useStore';
 import type { BgMotion, ThemePalette } from '../types';
@@ -28,12 +29,6 @@ export function SettingsPage({ store }: Props) {
 
   const dp = settings.dailyPlan;
   const planOn = settings.dailyPlanCompareEnabled === true;
-
-  function patchPlan(key: keyof typeof dp, value: string) {
-    const n = parseFloat(value);
-    if (Number.isNaN(n) || n < 0) return;
-    updateSettings({ dailyPlan: { ...dp, [key]: n } });
-  }
 
   async function exportJpg() {
     setJpgBusy(true);
@@ -163,48 +158,64 @@ export function SettingsPage({ store }: Props) {
             <div className="row-2">
               <div className="field">
                 <label>周一</label>
-                <input type="number" value={dp.mon} onChange={(e) => patchPlan('mon', e.target.value)} />
+                <AmountInput
+                  value={dp.mon}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, mon: n } })}
+                />
               </div>
               <div className="field">
                 <label>周二</label>
-                <input type="number" value={dp.tue} onChange={(e) => patchPlan('tue', e.target.value)} />
+                <AmountInput
+                  value={dp.tue}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, tue: n } })}
+                />
               </div>
             </div>
             <div className="row-2">
               <div className="field">
                 <label>周三</label>
-                <input type="number" value={dp.wed} onChange={(e) => patchPlan('wed', e.target.value)} />
+                <AmountInput
+                  value={dp.wed}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, wed: n } })}
+                />
               </div>
               <div className="field">
                 <label>周四</label>
-                <input type="number" value={dp.thu} onChange={(e) => patchPlan('thu', e.target.value)} />
+                <AmountInput
+                  value={dp.thu}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, thu: n } })}
+                />
               </div>
             </div>
             <div className="row-2">
               <div className="field">
                 <label>周五</label>
-                <input type="number" value={dp.fri} onChange={(e) => patchPlan('fri', e.target.value)} />
+                <AmountInput
+                  value={dp.fri}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, fri: n } })}
+                />
               </div>
               <div className="field">
                 <label>周日</label>
-                <input type="number" value={dp.sun} onChange={(e) => patchPlan('sun', e.target.value)} />
+                <AmountInput
+                  value={dp.sun}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, sun: n } })}
+                />
               </div>
             </div>
             <div className="row-2">
               <div className="field">
                 <label>周六·出去玩</label>
-                <input
-                  type="number"
+                <AmountInput
                   value={dp.satPlay}
-                  onChange={(e) => patchPlan('satPlay', e.target.value)}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, satPlay: n } })}
                 />
               </div>
               <div className="field">
                 <label>周六·不玩</label>
-                <input
-                  type="number"
+                <AmountInput
                   value={dp.satStay}
-                  onChange={(e) => patchPlan('satStay', e.target.value)}
+                  onValueChange={(n) => updateSettings({ dailyPlan: { ...dp, satStay: n } })}
                 />
               </div>
             </div>

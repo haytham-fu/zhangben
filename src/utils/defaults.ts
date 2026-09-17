@@ -53,8 +53,10 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'other_special', name: '其他专项', bucket: 'special', icon: '📦', allowPayment: true },
 ];
 
-/** Bumped from v1 → v2 so prior localStorage (e.g. 3500+1500) is not reused. */
+/** Current localStorage key. Do not bump without migrating prior data. */
 export const STORAGE_KEY = 'zhangben-v2';
+/** Pre-v2 key; loadState migrates into STORAGE_KEY when v2 is missing. */
+export const LEGACY_STORAGE_KEY = 'zhangben-v1';
 
 /** Start empty — user creates peer-level 小荷包 (siblings of 基础/专项) */
 export const DEFAULT_WALLETS: Wallet[] = [];

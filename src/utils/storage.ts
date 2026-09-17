@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, DEFAULT_WALLETS, STORAGE_KEY } from './defaults';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, DEFAULT_WALLETS, LEGACY_STORAGE_KEY, STORAGE_KEY } from './defaults';
 import type { AppState, Category, ForeignCurrency, MonthOpening, PantryItem, Settings, Transaction, Wallet } from '../types';
 import {
   DEFAULT_FIXED_RATES,
@@ -234,8 +234,25 @@ function normalizeCategories(list: unknown): Category[] {
   });
 }
 
+/**
+ * Load ledger from localStorage. Keeps the current STORAGE_KEY.
+ * If v2 is missing but legacy v1 still has data (one-time blank-ledger bump),
+ * copy v1 → v2 so reopen does not look like a wipe.
+ */
 export function loadState(): AppState {
-  const data = safeParse<Partial<AppState>>(localStorage.getItem(STORAGE_KEY));
+  let raw = localStorage.getItem(STORAGE_KEY);
+  if (raw == null) {
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy != null) {
+      try {
+        localStorage.setItem(STORAGE_KEY, legacy);
+        raw = legacy;
+      } catch {
+        raw = legacy;
+      }
+    }
+  }
+  const data = safeParse<Partial<AppState>>(raw);
   return {
     settings: normalizeSettings(data?.settings),
     transactions: normalizeTransactions(data?.transactions),

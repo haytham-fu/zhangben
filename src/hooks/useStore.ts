@@ -18,7 +18,7 @@ import type {
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
 import { costPerMeal, roundMoney } from '../utils/grocery';
 import { loadState, saveState } from '../utils/storage';
-import { STORAGE_KEY } from '../utils/defaults';
+import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
 import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount } from '../utils/budget';
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
 import { mergeProfileSettings, type LedgerProfilePack } from '../utils/profile';
@@ -527,7 +527,7 @@ export function useStore() {
 
   const resetAll = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem('zhangben-v1'); // legacy key from pre-v2 blank ledger
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
     setState(loadState());
   }, []);
 

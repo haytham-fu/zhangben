@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AmountInput } from './AmountInput';
 import { GlassCard } from './GlassCard';
 import type { Store } from '../hooks/useStore';
 import type { Currency, ForeignCurrency } from '../types';
@@ -106,20 +107,16 @@ export function BudgetFxBar({ store }: Props) {
         <div className="row-2 bfx-budget-inputs">
           <div className="field" style={{ marginBottom: 0 }}>
             <label>基础预算</label>
-            <input
-              type="number"
-              inputMode="decimal"
+            <AmountInput
               value={settings.basicBudget}
-              onChange={(e) => updateSettings({ basicBudget: Number(e.target.value) || 0 })}
+              onValueChange={(n) => updateSettings({ basicBudget: n })}
             />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>专项预算</label>
-            <input
-              type="number"
-              inputMode="decimal"
+            <AmountInput
               value={settings.specialBudget}
-              onChange={(e) => updateSettings({ specialBudget: Number(e.target.value) || 0 })}
+              onValueChange={(n) => updateSettings({ specialBudget: n })}
             />
           </div>
         </div>
@@ -179,14 +176,12 @@ export function BudgetFxBar({ store }: Props) {
                   <label>
                     {CURRENCY_META[c].zh}（{c}）
                   </label>
-                  <input
-                    type="number"
+                  <AmountInput
                     step="0.0001"
-                    inputMode="decimal"
                     value={settings.fixedRates[c]}
-                    onChange={(e) =>
+                    onValueChange={(n) =>
                       updateSettings({
-                        fixedRates: setFixedRate(settings, c, Number(e.target.value) || 0),
+                        fixedRates: setFixedRate(settings, c, n),
                       })
                     }
                   />
