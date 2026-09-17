@@ -4,7 +4,7 @@ export type CapUnit = 'ml' | 'L' | 'g' | 'kg' | '勺' | '瓶' | '支' | '袋';
 
 export type EstimateKind = 'meals' | 'uses' | 'days';
 
-export type ProductFamily = 'seasoning' | 'sundry';
+export type ProductFamily = 'seasoning' | 'sundry' | 'food';
 
 export interface ProductProfile {
   id: string;
@@ -202,6 +202,79 @@ export const PRODUCT_PROFILES: ProductProfile[] = [
     aliases: ['纸巾'],
   },
 ];
+
+/**
+ * Lightweight pantry-backfill heuristics for 主食/菜/肉等（非调料）。
+ * usePerEvent = 大约每顿消耗的克/毫升；偏保守（配合 CONSERVATIVE 再打九折）。
+ * 规则摘要：蔬菜≈150g/顿、肉≈100g/顿、主食≈80g/顿、蛋≈50g/顿、水果≈150g/顿、其他≈120g/顿。
+ */
+export const FOOD_KIND_PROFILES: Record<string, ProductProfile> = {
+  veg: {
+    id: 'food_veg',
+    name: '蔬菜',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 150,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg', 'ml', 'L'],
+  },
+  meat: {
+    id: 'food_meat',
+    name: '肉类',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 100,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg', 'ml', 'L'],
+  },
+  egg: {
+    id: 'food_egg',
+    name: '蛋',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 50,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg'],
+  },
+  staple: {
+    id: 'food_staple',
+    name: '主食',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 80,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg', 'ml', 'L'],
+  },
+  fruit: {
+    id: 'food_fruit',
+    name: '水果',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 150,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg', 'ml', 'L'],
+  },
+  custom: {
+    id: 'food_custom',
+    name: '其他食材',
+    family: 'food',
+    base: 'g',
+    usePerEvent: 120,
+    estimateKind: 'meals',
+    packSize: 500,
+    units: ['g', 'kg', 'ml', 'L'],
+  },
+};
+
+/** Profile for non-seasoning grocery kinds when estimating meals from g/ml. */
+export function foodKindProfile(kind: string): ProductProfile {
+  return FOOD_KIND_PROFILES[kind] ?? FOOD_KIND_PROFILES.custom;
+}
 
 export function seasoningProfiles(): ProductProfile[] {
   return PRODUCT_PROFILES.filter((p) => p.family === 'seasoning');

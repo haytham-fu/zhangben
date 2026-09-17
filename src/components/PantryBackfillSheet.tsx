@@ -1,33 +1,51 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Store } from '../hooks/useStore';
-import type { GroceryKind, PaymentMethod } from '../types';
-import { GROCERY_KIND_OPTIONS } from '../utils/grocery';
+import type { GroceryKind } from '../types';
+import {
+  defaultUnit,
+  estimateFromCapacity,
+  type CapUnit,
+} from '../utils/capacityEstimate';
+import { GROCERY_KIND_OPTIONS, resolveBackfillCapacityProfile } from '../utils/grocery';
 import { AmountInput } from './AmountInput';
+import { CapacityEstimatePanel } from './CapacityEstimatePanel';
 import { ModalPortal } from './ModalPortal';
-import { PaymentPicker } from './PaymentPicker';
+
+type RemainMode = 'meals' | 'capacity';
 
 type BackfillDraft = {
   name: string;
   kind: GroceryKind;
-  cost: number;
   meals: number;
-  boughtDate: string;
   note: string;
-  recordExpense: boolean;
-  paymentMethod: PaymentMethod;
+  remainMode: RemainMode;
+  capacityRaw: string;
+  capacityUnit: CapUnit;
 };
 
-function emptyBackfill(today: string): BackfillDraft {
+function emptyBackfill(): BackfillDraft {
   return {
     name: '',
     kind: 'veg',
-    cost: 0,
     meals: 0,
-    boughtDate: today,
     note: '',
-    recordExpense: false,
-    paymentMethod: 'other',
+    remainMode: 'meals',
+    capacityRaw: '',
+    capacityUnit: 'g',
   };
+}
+
+function mealsFromCapacity(
+  kind: GroceryKind,
+  name: string,
+  raw: string,
+  unit: CapUnit,
+): number {
+  const ctx = resolveBackfillCapacityProfile(kind, name);
+  if (!ctx.profile) return 0;
+  const amt = parseFloat(raw);
+  if (!Number.isFinite(amt) || amt <= 0) return 0;
+  return estimateFromCapacity(ctx.profile, amt, unit)?.count ?? 0;
 }
 
 interface Props {
@@ -37,16 +55,46 @@ interface Props {
 }
 
 export function PantryBackfillSheet({ store, open, onClose }: Props) {
-  const { addPantryBackfill, todayStr, wallets } = store;
-  const [draft, setDraft] = useState<BackfillDraft>(() => emptyBackfill(todayStr));
-  const [walletId, setWalletId] = useState<string | null>(null);
+  const { addPantryBackfill } = store;
+  const [draft, setDraft] = useState<BackfillDraft>(() => emptyBackfill());
 
   useEffect(() => {
-    if (open) {
-      setDraft(emptyBackfill(todayStr));
-      setWalletId(null);
-    }
-  }, [open, todayStr]);
+    if (open) setDraft(emptyBackfill());
+  }, [open]);
+
+  const capacityCtx = useMemo(
+    () => resolveBackfillCapacityProfile(draft.kind, draft.name),
+    [draft.kind, draft.name],
+  );
+
+  const liveEst = useMemo(() => {
+    if (draft.remainMode !== 'capacity' || !capacityCtx.profile) return null;
+    const amt = parseFloat(draft.capacityRaw);
+    if (!Number.isFinite(amt) || amt <= 0) return null;
+    return estimateFromCapacity(capacityCtx.profile, amt, draft.capacityUnit);
+  }, [draft.remainMode, draft.capacityRaw, draft.capacityUnit, capacityCtx.profile]);
+
+  function setKind(kind: GroceryKind) {
+    const ctx = resolveBackfillCapacityProfile(kind, draft.name);
+    const unit = ctx.profile ? defaultUnit(ctx.profile) : 'g';
+    const meals =
+      draft.remainMode === 'capacity'
+        ? mealsFromCapacity(kind, draft.name, draft.capacityRaw, unit)
+        : draft.meals;
+    setDraft({ ...draft, kind, capacityUnit: unit, meals });
+  }
+
+  function applyCapacity(raw: string, unit: CapUnit, name?: string) {
+    const nextName = name ?? draft.name;
+    const meals = mealsFromCapacity(draft.kind, nextName, raw, unit);
+    setDraft({
+      ...draft,
+      name: nextName,
+      capacityRaw: raw,
+      capacityUnit: unit,
+      meals,
+    });
+  }
 
   function save() {
     const name = draft.name.trim();
@@ -55,23 +103,18 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
       return;
     }
     if (!(draft.meals > 0)) {
-      alert('请填写大概能吃几顿（大于 0）');
-      return;
-    }
-    if (draft.recordExpense && !(draft.cost > 0)) {
-      alert('记过往支出时请填写金额');
+      alert(
+        draft.remainMode === 'capacity'
+          ? '请填写剩余克/毫升，或切换为「大约还能吃几顿」'
+          : '请填写大概还能吃几顿（大于 0）',
+      );
       return;
     }
     addPantryBackfill({
       name,
       kind: draft.kind,
-      costRmb: draft.cost,
       meals: draft.meals,
-      boughtDate: draft.boughtDate || todayStr,
       note: draft.note.trim() || undefined,
-      recordExpense: draft.recordExpense,
-      paymentMethod: draft.paymentMethod,
-      walletId: draft.recordExpense ? walletId : null,
     });
     onClose();
   }
@@ -97,14 +140,21 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
           <h2 className="glass-title">补登食材</h2>
           <div className="modal-sheet-body">
             <p className="hint" style={{ marginTop: 0 }}>
-              把过往已买的食材直接写入冰箱，默认不记新支出。
+              只写入冰箱库存，不记金额与支出。可直接写还能吃几顿，或填剩余克/毫升由网站估算。
             </p>
 
             <div className="field">
               <label>名称</label>
               <input
                 value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  if (draft.remainMode === 'capacity' && draft.kind === 'seasoning') {
+                    applyCapacity(draft.capacityRaw, draft.capacityUnit, name);
+                  } else {
+                    setDraft({ ...draft, name });
+                  }
+                }}
                 placeholder="例如：五花肉"
                 autoFocus
               />
@@ -119,7 +169,7 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
                   key={k.kind}
                   type="button"
                   className={`chip chip-sm chip-with-icon ${draft.kind === k.kind ? 'active' : ''}`}
-                  onClick={() => setDraft({ ...draft, kind: k.kind })}
+                  onClick={() => setKind(k.kind)}
                 >
                   <span className="emoji-bubble">{k.icon}</span>
                   {k.label}
@@ -127,18 +177,37 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
               ))}
             </div>
 
-            <div className="row-2 grocery-cost-meals">
+            <p className="sheet-section-label" style={{ marginBottom: 6 }}>
+              还剩多少
+            </p>
+            <div className="chip-row" style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={`chip chip-sm ${draft.remainMode === 'meals' ? 'active' : ''}`}
+                onClick={() => setDraft({ ...draft, remainMode: 'meals' })}
+              >
+                大约还能吃几顿
+              </button>
+              <button
+                type="button"
+                className={`chip chip-sm ${draft.remainMode === 'capacity' ? 'active' : ''}`}
+                onClick={() => {
+                  const ctx = resolveBackfillCapacityProfile(draft.kind, draft.name);
+                  const unit = ctx.profile ? defaultUnit(ctx.profile) : 'g';
+                  setDraft({
+                    ...draft,
+                    remainMode: 'capacity',
+                    capacityUnit: unit,
+                  });
+                }}
+              >
+                拿不准：写剩余克/毫升
+              </button>
+            </div>
+
+            {draft.remainMode === 'meals' ? (
               <div className="field">
-                <label>花费（元）</label>
-                <AmountInput
-                  step="0.01"
-                  placeholder="RMB"
-                  value={draft.cost}
-                  onValueChange={(n) => setDraft({ ...draft, cost: n })}
-                />
-              </div>
-              <div className="field">
-                <label>大概能吃几顿</label>
+                <label>大约还能吃几顿</label>
                 <AmountInput
                   step="0.1"
                   placeholder="顿"
@@ -146,16 +215,48 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
                   onValueChange={(n) => setDraft({ ...draft, meals: n })}
                 />
               </div>
-            </div>
-
-            <div className="field">
-              <label>购买日期（可选）</label>
-              <input
-                type="date"
-                value={draft.boughtDate}
-                onChange={(e) => setDraft({ ...draft, boughtDate: e.target.value })}
-              />
-            </div>
+            ) : (
+              <>
+                {capacityCtx.profile ? (
+                  <CapacityEstimatePanel
+                    profile={capacityCtx.profile}
+                    capacityRaw={draft.capacityRaw}
+                    capacityUnit={draft.capacityUnit}
+                    onCapacityChange={(raw, unit) => applyCapacity(raw, unit)}
+                    profiles={capacityCtx.pickerProfiles}
+                    selectedName={
+                      capacityCtx.showPicker ? capacityCtx.profile.name : undefined
+                    }
+                    onSelectProfile={
+                      capacityCtx.showPicker
+                        ? (p) => {
+                            const unit = defaultUnit(p);
+                            applyCapacity(draft.capacityRaw || '1', unit, p.name);
+                          }
+                        : undefined
+                    }
+                    footerHint={
+                      capacityCtx.showPicker
+                        ? '可点选调料品名；估算可手动改顿数'
+                        : '粗略按品类估算；也可切回「大约还能吃几顿」手填'
+                    }
+                  />
+                ) : (
+                  <p className="hint">请选择品类后再填剩余量</p>
+                )}
+                {(liveEst || draft.meals > 0) && (
+                  <div className="field section-gap">
+                    <label>估算顿数（可改）</label>
+                    <AmountInput
+                      step="0.1"
+                      placeholder="顿"
+                      value={draft.meals}
+                      onValueChange={(n) => setDraft({ ...draft, meals: n })}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="field">
               <label>备注（可选）</label>
@@ -165,63 +266,6 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
                 placeholder="可选"
               />
             </div>
-
-            <div className="toggle-row section-gap">
-              <div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>同时记一笔过往支出</div>
-                <p className="hint" style={{ margin: '4px 0 0' }}>
-                  默认关闭：只补库存。开启后按上方日期记买菜支出并计入预算。
-                </p>
-              </div>
-              <button
-                type="button"
-                className={`toggle ${draft.recordExpense ? 'on' : ''}`}
-                aria-label="同时记一笔过往支出"
-                onClick={() => setDraft({ ...draft, recordExpense: !draft.recordExpense })}
-              />
-            </div>
-
-            {draft.recordExpense && (
-              <>
-                <div className="field section-gap">
-                  <label>支付方式</label>
-                  <PaymentPicker
-                    value={draft.paymentMethod}
-                    onChange={(m) => setDraft({ ...draft, paymentMethod: m })}
-                    compact
-                  />
-                </div>
-                {wallets.length > 0 && (
-                  <div className="field">
-                    <label>小荷包（可选）</label>
-                    <div className="chip-row wallet-pick-row">
-                      <button
-                        type="button"
-                        className={`chip ${walletId == null ? 'active' : ''}`}
-                        onClick={() => setWalletId(null)}
-                      >
-                        不指定
-                      </button>
-                      {wallets.map((w) => (
-                        <button
-                          key={w.id}
-                          type="button"
-                          className={`chip chip-with-icon ${walletId === w.id ? 'active' : ''}`}
-                          onClick={() => setWalletId(w.id)}
-                        >
-                          <span
-                            className="wallet-chip-dot"
-                            style={{ background: w.color }}
-                            aria-hidden
-                          />
-                          {w.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
 
           <div className="modal-actions">

@@ -35,10 +35,10 @@ export function PantryPanel({ store }: Props) {
           className="btn btn-primary btn-block pantry-backfill-cta"
           onClick={() => setBackfillOpen(true)}
         >
-          <span aria-hidden>📝</span> 补登过往食材
+          <span aria-hidden>📝</span> 补登食材
         </button>
         {available.length === 0 ? (
-          <p className="hint">暂无可用食材。点上方按钮即可录入过往已买的菜（默认只写冰箱、不记今天支出）。</p>
+          <p className="hint">暂无可用食材。点上方补登：写名称与还能吃几顿（或剩余克/毫升估算），只写冰箱、不记支出。</p>
         ) : (
           <ul className="pantry-inventory-list">
             {available.map((p) => (

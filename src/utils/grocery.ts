@@ -2,8 +2,10 @@ import type { GroceryKind, PantryItem } from '../types';
 import {
   estimateFromCapacity,
   findProductProfile,
+  foodKindProfile,
   seasoningProfiles,
   type CapUnit,
+  type ProductProfile,
 } from './capacityEstimate';
 
 export interface GroceryKindOption {
@@ -55,6 +57,31 @@ export function estimateSeasoningMeals(
   if (!profile || profile.family !== 'seasoning') return null;
   return estimateFromCapacity(profile, amount, unit)?.count ?? null;
 }
+
+/** 补登「剩余克/毫升」：调料用产品档案；其他品类用轻量每顿克数启发式 */
+export function resolveBackfillCapacityProfile(
+  kind: GroceryKind,
+  name: string,
+): {
+  profile: ProductProfile | null;
+  showPicker: boolean;
+  pickerProfiles?: ProductProfile[];
+} {
+  if (kind === 'seasoning') {
+    const list = seasoningProfiles();
+    const found = findProductProfile(name);
+    return {
+      profile: found ?? list[0] ?? null,
+      showPicker: true,
+      pickerProfiles: list,
+    };
+  }
+  return {
+    profile: foodKindProfile(kind),
+    showPicker: false,
+  };
+}
+
 
 export function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
