@@ -5,7 +5,6 @@ import {
   endOfMonth,
   format,
   getDay,
-  isSameDay,
   isSameMonth,
   parseISO,
   startOfMonth,
@@ -20,12 +19,14 @@ import type { Store } from '../hooks/useStore';
 import {
   dailyStatus,
   dayNetBasic,
+  dayTxCount,
   getDailyPlanAmount,
   getSatMode,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
+import { normalizeTxDate } from '../utils/dates';
 
 interface Props {
   store: Store;
@@ -46,10 +47,11 @@ function statusClass(s: BudgetStatus): string {
 }
 
 export function CalendarPage({ store }: Props) {
-  const { settings, transactions, categoryMap, walletMap, todayStr, setSatModeForDate } = store;
+  const { settings, transactions, categoryMap, walletMap, todayStr, monthStats, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
-  const today = parseISO(todayStr);
+  // Anchor "today" from local YYYY-MM-DD to avoid parseISO UTC off-by-one
+  const today = parseISO(`${todayStr}T12:00:00`);
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -71,21 +73,23 @@ export function CalendarPage({ store }: Props) {
     >();
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
+      // Plan compare uses basic net; spent figure follows basic (daily plan is basic living)
       const used = dayNetBasic(transactions, dateStr, opts);
       const plan = getDailyPlanAmount(dateStr, settings);
       const remain = Math.round((plan - used) * 100) / 100;
       const status = planOn ? dailyStatus(Math.max(0, used), plan) : 'safe';
-      const txCount = transactions.filter((t) => t.date === dateStr).length;
+      const txCount = dayTxCount(transactions, dateStr);
       map.set(dateStr, { used, plan, remain, status, txCount });
     }
     return map;
-  }, [days, transactions, settings, opts.includeSpecial, planOn]);
+    // monthStats.txCount forces recompute when any tx is added/removed
+  }, [days, transactions, settings, opts.includeSpecial, planOn, monthStats.txCount, monthStats.todayUsed]);
 
-  const selected = selectedDate;
+  const selected = selectedDate ? normalizeTxDate(selectedDate) : null;
   const selectedStats = selected ? dayStats.get(selected) : undefined;
   const selectedTxs = useMemo(() => {
     if (!selected) return [];
-    return transactions.filter((t) => t.date === selected);
+    return transactions.filter((t) => normalizeTxDate(t.date) === selected);
   }, [transactions, selected]);
 
   const isSelectedSat = selected ? getDay(parseISO(selected)) === 6 : false;
@@ -147,9 +151,10 @@ export function CalendarPage({ store }: Props) {
           {days.map((d) => {
             const dateStr = format(d, 'yyyy-MM-dd');
             const stat = dayStats.get(dateStr)!;
-            const isToday = isSameDay(d, today);
-            const isFuture = d > today;
-            const isSel = selected === dateStr;
+            const dateKey = dateStr;
+            const isToday = dateKey === todayStr;
+            const isFuture = dateKey > todayStr;
+            const isSel = selected === dateKey;
             const showNums = !isFuture || stat.used !== 0 || stat.txCount > 0;
             return (
               <button

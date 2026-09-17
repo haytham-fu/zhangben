@@ -8,6 +8,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import type { SatMode, Settings, Transaction } from '../types';
+import { normalizeTxDate } from './dates';
 
 export function monthKey(date: Date | string): string {
   const d = typeof date === 'string' ? parseISO(date) : date;
@@ -52,7 +53,7 @@ export function isBudgetIncome(tx: Transaction): boolean {
 }
 
 export function filterMonth(txs: Transaction[], ym: string): Transaction[] {
-  return txs.filter((t) => t.date.startsWith(ym));
+  return txs.filter((t) => normalizeTxDate(t.date).startsWith(ym));
 }
 
 export function netBasicSpend(
@@ -123,10 +124,29 @@ export function dayNetBasic(
   dateStr: string,
   opts: { includeSpecial: boolean },
 ): number {
+  const day = normalizeTxDate(dateStr);
   return netBasicSpend(
-    txs.filter((t) => t.date === dateStr),
+    txs.filter((t) => normalizeTxDate(t.date) === day),
     opts,
   );
+}
+
+/** All budget-counting net spend for a calendar day (basic + special). */
+export function dayNetAll(
+  txs: Transaction[],
+  dateStr: string,
+  opts: { includeSpecial: boolean },
+): number {
+  const day = normalizeTxDate(dateStr);
+  const dayTxs = txs.filter((t) => normalizeTxDate(t.date) === day);
+  const basic = netBasicSpend(dayTxs, opts);
+  const special = specialSpend(dayTxs, opts);
+  return Math.round((basic + special) * 100) / 100;
+}
+
+export function dayTxCount(txs: Transaction[], dateStr: string): number {
+  const day = normalizeTxDate(dateStr);
+  return txs.filter((t) => normalizeTxDate(t.date) === day).length;
 }
 
 export function plannedBasicToDate(ym: string, today: Date, settings: Settings): number {

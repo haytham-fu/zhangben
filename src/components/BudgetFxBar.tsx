@@ -18,25 +18,20 @@ import {
   fetchLiveRates,
   formatLiveRatesSummary,
 } from '../utils/fx';
-import { monthBasicUsed, monthSpecialUsed } from '../utils/budget';
 
 interface Props {
   store: Store;
 }
 
 export function BudgetFxBar({ store }: Props) {
-  const { settings, updateSettings, transactions, currentYm } = store;
+  const { settings, updateSettings, monthStats } = store;
   const [fxBusy, setFxBusy] = useState(false);
   const [fxMsg, setFxMsg] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [convAmounts, setConvAmounts] = useState<Partial<Record<ForeignCurrency, string>>>({});
 
   const preferred = normalizePreferredCurrencies(settings.preferredCurrencies);
-  const opts = { includeSpecial: settings.includeSpecialInAdvice };
-  const basicUsed = monthBasicUsed(transactions, settings, currentYm, opts);
-  const specialUsed = monthSpecialUsed(transactions, settings, currentYm, opts);
-  const basicLeft = settings.basicBudget - basicUsed;
-  const specialLeft = settings.specialBudget - specialUsed;
+  const { basicUsed, specialUsed, basicRemain: basicLeft, specialRemain: specialLeft } = monthStats;
   const isLive = settings.fxRateMode === 'live';
 
   function togglePreferred(c: Currency) {

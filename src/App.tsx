@@ -26,6 +26,8 @@ export default function App() {
     setTab('add');
   }, []);
 
+  // Keep pages mounted so derived budget/calendar figures stay live when adding txs
+  // (hidden tabs still receive store updates; only the active page is shown).
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -37,26 +39,41 @@ export default function App() {
         </div>
       </header>
 
-      <div key={tab} className="page-view">
-        {tab === 'home' && (
-          <Dashboard
-            store={store}
-            onOpenTx={() => setTab('list')}
-            adviceAnimated={appearance.adviceAnimated}
-          />
-        )}
-        {tab === 'calendar' && <CalendarPage store={store} />}
-        {tab === 'add' && (
-          <AddTransaction
-            store={store}
-            onDone={() => setTab('home')}
-            deepLink={deepLink}
-            onDeepLinkConsumed={() => setDeepLink(null)}
-          />
-        )}
-        {tab === 'wallets' && <WalletsPage store={store} />}
-        {tab === 'list' && <TransactionList store={store} />}
-        {tab === 'settings' && <SettingsPage store={store} />}
+      <div className={`page-view ${tab === 'home' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'home'}>
+        <Dashboard
+          store={store}
+          onOpenTx={() => setTab('list')}
+          adviceAnimated={appearance.adviceAnimated}
+        />
+      </div>
+      <div
+        className={`page-view ${tab === 'calendar' ? '' : 'page-view--hidden'}`}
+        aria-hidden={tab !== 'calendar'}
+      >
+        <CalendarPage store={store} />
+      </div>
+      <div className={`page-view ${tab === 'add' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'add'}>
+        <AddTransaction
+          store={store}
+          onDone={() => setTab('home')}
+          deepLink={deepLink}
+          onDeepLinkConsumed={() => setDeepLink(null)}
+        />
+      </div>
+      <div
+        className={`page-view ${tab === 'wallets' ? '' : 'page-view--hidden'}`}
+        aria-hidden={tab !== 'wallets'}
+      >
+        <WalletsPage store={store} />
+      </div>
+      <div className={`page-view ${tab === 'list' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'list'}>
+        <TransactionList store={store} />
+      </div>
+      <div
+        className={`page-view ${tab === 'settings' ? '' : 'page-view--hidden'}`}
+        aria-hidden={tab !== 'settings'}
+      >
+        <SettingsPage store={store} />
       </div>
 
       <BottomNav active={tab} onChange={setTab} />

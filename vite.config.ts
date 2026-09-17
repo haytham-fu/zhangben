@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: '账本',
         short_name: '账本',
-        description: '个人记账对比 PWA · 3500 基础 + 1500 专项',
+        description: '本地记账 PWA · 通用账本，可导入个人计划配置',
         theme_color: '#3b82f6',
         background_color: '#dbeafe',
         display: 'standalone',

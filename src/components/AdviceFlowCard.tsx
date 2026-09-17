@@ -20,8 +20,8 @@ export function AdviceFlowCard({ title, items, animated }: Props) {
       <div className="advice-flow-inner">
         <h2 className="advice-flow-title">{title}</h2>
         <ul className="advice-list advice-flow-list">
-          {items.map((t) => (
-            <li key={t}>{t}</li>
+          {items.map((t, i) => (
+            <li key={`${i}-${t}`}>{t}</li>
           ))}
         </ul>
       </div>

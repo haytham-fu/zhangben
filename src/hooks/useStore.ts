@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import { v4 as uuid } from 'uuid';
 import type {
   AppState,
@@ -19,7 +18,9 @@ import type {
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
 import { costPerMeal, roundMoney } from '../utils/grocery';
 import { loadState, saveState } from '../utils/storage';
-import { monthKey } from '../utils/budget';
+import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount } from '../utils/budget';
+import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
+import { mergeProfileSettings, type LedgerProfilePack } from '../utils/profile';
 import {
   applyTransferToWallet,
   createWallet,
@@ -121,7 +122,7 @@ export function useStore() {
         id: uuid(),
         type: input.type,
         kind: input.kind ?? 'normal',
-        date: input.date,
+        date: normalizeTxDate(input.date),
         amount: input.amount,
         currency: input.currency,
         rate,
@@ -152,6 +153,7 @@ export function useStore() {
       const prev = s.transactions.find((t) => t.id === id);
       if (!prev) return s;
       const nextTx = { ...prev, ...patch };
+      if (patch.date != null) nextTx.date = normalizeTxDate(patch.date);
       if (patch.amount != null || patch.currency != null || patch.rate != null) {
         const currency = patch.currency ?? prev.currency;
         const amount = patch.amount ?? prev.amount;
@@ -267,7 +269,7 @@ export function useStore() {
 
       let result: { ok: boolean; message?: string } = { ok: false, message: '未找到小荷包' };
       setState((s) => {
-        const ym = monthKey(new Date());
+        const ym = localMonthKey();
         const wallets = ensurePigWallet(s.wallets);
         const idx = wallets.findIndex((w) => w.id === walletId);
         if (idx < 0) {
@@ -403,7 +405,7 @@ export function useStore() {
             mealsTotal: meals,
             mealsLeft: meals,
             costPerMeal: costPerMeal(cost, meals),
-            boughtDate: opts.date,
+            boughtDate: normalizeTxDate(opts.date),
             notes: it.notes,
             purchaseTxId: txId,
           };
@@ -414,7 +416,7 @@ export function useStore() {
           id: txId,
           type: 'expense',
           kind: 'normal',
-          date: opts.date,
+          date: normalizeTxDate(opts.date),
           amount: total,
           currency: 'RMB',
           rate: 1,
@@ -473,7 +475,7 @@ export function useStore() {
           id: uuid(),
           type: 'expense',
           kind: 'normal',
-          date: opts.date,
+          date: normalizeTxDate(opts.date),
           amount: total,
           currency: 'RMB',
           rate: 1,
@@ -527,8 +529,8 @@ export function useStore() {
     setState(loadState());
   }, []);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const currentYm = monthKey(new Date());
+  const todayStr = localDateStr();
+  const currentYm = localMonthKey();
 
   const categoryMap = useMemo(() => {
     const m = new Map(state.categories.map((c) => [c.id, c]));
@@ -539,6 +541,37 @@ export function useStore() {
     const m = new Map(state.wallets.map((w) => [w.id, w]));
     return m;
   }, [state.wallets]);
+
+  /** Single reactive snapshot — all overview/calendar consumers must use this. */
+  const monthStats = useMemo(() => {
+    const opts = { includeSpecial: state.settings.includeSpecialInAdvice };
+    const basicUsed = monthBasicUsed(state.transactions, state.settings, currentYm, opts);
+    const specialUsed = monthSpecialUsed(state.transactions, state.settings, currentYm, opts);
+    const totalBudget = state.settings.basicBudget + state.settings.specialBudget;
+    const totalUsed = Math.round((basicUsed + specialUsed) * 100) / 100;
+    const todayUsed = dayNetBasic(state.transactions, todayStr, opts);
+    const todayPlan = getDailyPlanAmount(todayStr, state.settings);
+    return {
+      basicUsed,
+      specialUsed,
+      totalUsed,
+      totalBudget,
+      basicRemain: Math.round((state.settings.basicBudget - basicUsed) * 100) / 100,
+      specialRemain: Math.round((state.settings.specialBudget - specialUsed) * 100) / 100,
+      totalRemain: Math.round((totalBudget - totalUsed) * 100) / 100,
+      todayUsed,
+      todayPlan,
+      todayRemain: Math.round((todayPlan - todayUsed) * 100) / 100,
+      txCount: state.transactions.length,
+    };
+  }, [state.transactions, state.settings, currentYm, todayStr]);
+
+  const applyProfilePack = useCallback((pack: LedgerProfilePack) => {
+    setState((s) => ({
+      ...s,
+      settings: mergeProfileSettings(s.settings, pack),
+    }));
+  }, []);
 
   return {
     state,
@@ -551,6 +584,7 @@ export function useStore() {
     walletMap,
     todayStr,
     currentYm,
+    monthStats,
     updateSettings,
     setSatModeForDate,
     addTransaction,
@@ -565,6 +599,7 @@ export function useStore() {
     cookFromPantry,
     removePantryItem,
     replaceState,
+    applyProfilePack,
     resetAll,
   };
 }

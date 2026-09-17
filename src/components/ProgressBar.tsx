@@ -24,9 +24,10 @@ export function ProgressBar({ label, used, budget, status, remainLabel = true, e
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    setReady(false);
     const id = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [used, budget]);
 
   return (
     <div className="progress-wrap">

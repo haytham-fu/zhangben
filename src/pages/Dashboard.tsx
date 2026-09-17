@@ -10,12 +10,8 @@ import {
   budgetStatus,
   buildAdvice,
   dailyStatus,
-  dayNetBasic,
   filterMonth,
-  getDailyPlanAmount,
   getSatMode,
-  monthBasicUsed,
-  monthSpecialUsed,
   weekdayLabel,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
@@ -27,17 +23,11 @@ interface Props {
 }
 
 export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
-  const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, setSatModeForDate } = store;
+  const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, monthStats, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const monthTxs = filterMonth(transactions, currentYm);
-  const basicUsed = monthBasicUsed(transactions, settings, currentYm, opts);
-  const specialUsed = monthSpecialUsed(transactions, settings, currentYm, opts);
-  const totalBudget = settings.basicBudget + settings.specialBudget;
-  const totalUsed = basicUsed + specialUsed;
-
-  const todayUsed = dayNetBasic(transactions, todayStr, opts);
-  const todayPlan = getDailyPlanAmount(todayStr, settings);
+  const { basicUsed, specialUsed, totalBudget, totalUsed, todayUsed, todayPlan } = monthStats;
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
   const advice = planOn

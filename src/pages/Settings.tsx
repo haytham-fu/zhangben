@@ -4,6 +4,10 @@ import type { Store } from '../hooks/useStore';
 import type { BgMotion, ThemePalette } from '../types';
 import { DEFAULT_SETTINGS } from '../utils/defaults';
 import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographic';
+import {
+  fetchProfileFromUrl,
+  parseProfilePack,
+} from '../utils/profile';
 import { exportJson, importJson } from '../utils/storage';
 
 interface Props {
@@ -11,10 +15,15 @@ interface Props {
 }
 
 export function SettingsPage({ store }: Props) {
-  const { settings, updateSettings, currentYm, replaceState, resetAll, state } = store;
+  const { settings, updateSettings, currentYm, replaceState, applyProfilePack, resetAll, state } = store;
   const fileRef = useRef<HTMLInputElement>(null);
+  const profileFileRef = useRef<HTMLInputElement>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [jpgBusy, setJpgBusy] = useState(false);
+  const [profileUrl, setProfileUrl] = useState('');
+  const [profilePaste, setProfilePaste] = useState('');
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
 
   const dp = settings.dailyPlan;
   const planOn = settings.dailyPlanCompareEnabled !== false;
@@ -229,6 +238,103 @@ export function SettingsPage({ store }: Props) {
       </GlassCard>
       )}
 
+
+
+      <GlassCard title="导入个人计划配置">
+        <p className="hint" style={{ marginTop: 0 }}>
+          公网默认为通用账本。若你有独立托管的计划 JSON（预算 / 日计划 / 期初汇总等），可在此导入；不会改动已有流水。
+        </p>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          disabled={profileBusy}
+          onClick={() => profileFileRef.current?.click()}
+        >
+          从文件导入计划配置
+        </button>
+        <input
+          ref={profileFileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setProfileBusy(true);
+            setProfileMsg('');
+            try {
+              const pack = parseProfilePack(await file.text());
+              applyProfilePack(pack);
+              setProfileMsg(`已应用：${pack.label || pack.name || file.name}`);
+            } catch (err) {
+              setProfileMsg(err instanceof Error ? err.message : '导入失败');
+            } finally {
+              setProfileBusy(false);
+              e.target.value = '';
+            }
+          }}
+        />
+        <div className="field section-gap">
+          <label>从链接导入（GitHub raw 等）</label>
+          <input
+            type="url"
+            placeholder="https://raw.githubusercontent.com/…/haytham-ledger-profile.json"
+            value={profileUrl}
+            onChange={(e) => setProfileUrl(e.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          disabled={profileBusy || !profileUrl.trim()}
+          onClick={async () => {
+            setProfileBusy(true);
+            setProfileMsg('');
+            try {
+              const pack = await fetchProfileFromUrl(profileUrl);
+              applyProfilePack(pack);
+              setProfileMsg(`已应用：${pack.label || pack.name || '远程配置'}`);
+            } catch (err) {
+              setProfileMsg(err instanceof Error ? err.message : '下载失败');
+            } finally {
+              setProfileBusy(false);
+            }
+          }}
+        >
+          从链接加载
+        </button>
+        <div className="field section-gap">
+          <label>或粘贴 JSON</label>
+          <textarea
+            rows={4}
+            placeholder='{ "version": 1, "settings": { ... } }'
+            value={profilePaste}
+            onChange={(e) => setProfilePaste(e.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          disabled={profileBusy || !profilePaste.trim()}
+          onClick={() => {
+            setProfileBusy(true);
+            setProfileMsg('');
+            try {
+              const pack = parseProfilePack(profilePaste);
+              applyProfilePack(pack);
+              setProfileMsg(`已应用：${pack.label || pack.name || '粘贴配置'}`);
+              setProfilePaste('');
+            } catch (err) {
+              setProfileMsg(err instanceof Error ? err.message : '解析失败');
+            } finally {
+              setProfileBusy(false);
+            }
+          }}
+        >
+          应用粘贴内容
+        </button>
+        {profileMsg && <p className="hint section-gap">{profileMsg}</p>}
+      </GlassCard>
 
       <GlassCard title="数据">
         <button

@@ -334,6 +334,10 @@ a {
   /* transform only during enter; final keyframe is identity so fixed dock stays viewport-fixed */
 }
 
+.page-view--hidden {
+  display: none !important;
+}
+
 /* Glass card — tuned blur to cut re-paints; enter + light press */
 .glass {
   position: relative;

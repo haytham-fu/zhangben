@@ -9,6 +9,7 @@ import {
 } from './currency';
 import { costPerMeal, roundMoney } from './grocery';
 import { ensurePigWallet, normalizeWallet } from './wallets';
+import { normalizeTxDate } from './dates';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -29,6 +30,7 @@ function normalizeTransactions(list: unknown): Transaction[] {
       (tx.categoryId === 'membership' && Boolean(tx.note?.includes('音乐会员自动')));
     return {
       ...tx,
+      date: normalizeTxDate(tx.date),
       currency,
       walletId: tx.walletId ?? null,
       isMonthly: legacyMonthly,
@@ -105,7 +107,7 @@ function normalizePantryItems(list: unknown): PantryItem[] {
 }
 
 
-function normalizeMonthOpening(raw: unknown): MonthOpening | null | undefined {
+export function normalizeMonthOpeningForImport(raw: unknown): MonthOpening | null | undefined {
   if (raw === null) return null;
   if (!raw || typeof raw !== 'object') return undefined;
   const o = raw as Record<string, unknown>;
@@ -188,14 +190,18 @@ export function normalizeSettings(raw: unknown): Settings {
         ? partial.showGoldMountain
         : DEFAULT_SETTINGS.showMonthlyBudgetProgress;
 
-  // Fresh install (empty partial) keeps DEFAULT monthOpening; existing saves
-  // without the key must not inherit it (avoids double-count with old daily imports).
+  // Fresh install → DEFAULT (null opening). Existing saves without the key
+  // must not inherit a pack opening (avoids surprising personal totals).
   const isFresh = Object.keys(partial).length === 0;
-  const monthOpening = isFresh
-    ? DEFAULT_SETTINGS.monthOpening
-    : 'monthOpening' in partial
-      ? normalizeMonthOpening((partial as { monthOpening?: unknown }).monthOpening) ?? null
-      : undefined;
+  let monthOpening: MonthOpening | null | undefined;
+  if (isFresh) {
+    monthOpening = DEFAULT_SETTINGS.monthOpening ?? null;
+  } else if ('monthOpening' in partial) {
+    monthOpening =
+      normalizeMonthOpeningForImport((partial as { monthOpening?: unknown }).monthOpening) ?? null;
+  } else {
+    monthOpening = null;
+  }
 
   return {
     ...DEFAULT_SETTINGS,
@@ -210,7 +216,7 @@ export function normalizeSettings(raw: unknown): Settings {
     settledMonths: Array.isArray(partial.settledMonths)
       ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
       : [],
-    monthOpening: monthOpening === undefined ? undefined : monthOpening,
+    monthOpening: monthOpening ?? null,
   };
 }
 

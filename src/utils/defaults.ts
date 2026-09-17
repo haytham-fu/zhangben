@@ -2,23 +2,25 @@ import type { Category, Settings, Wallet } from '../types';
 import { DEFAULT_FIXED_RATES, DEFAULT_PREFERRED_CURRENCIES } from './currency';
 
 export const DEFAULT_SETTINGS: Settings = {
-  basicBudget: 3500,
-  specialBudget: 1500,
+  /** Generic starter budgets — users edit or import a personal plan pack */
+  basicBudget: 3000,
+  specialBudget: 1000,
   fixedRates: { ...DEFAULT_FIXED_RATES },
   dailyPlan: {
-    mon: 131,
-    tue: 96,
-    wed: 131,
-    thu: 76,
-    fri: 76,
-    satPlay: 280,
-    satStay: 11.4,
-    sun: 56.4,
+    mon: 100,
+    tue: 100,
+    wed: 100,
+    thu: 100,
+    fri: 100,
+    satPlay: 150,
+    satStay: 80,
+    sun: 100,
   },
   defaultSatMode: 'play',
   satModeOverrides: {},
   includeSpecialInAdvice: true,
-  dailyPlanCompareEnabled: true,
+  /** Off by default: pure ledger until user enables plan compare or imports a pack */
+  dailyPlanCompareEnabled: false,
   fxRateMode: 'fixed',
   liveRates: {},
   liveRatesUpdatedAt: null,
@@ -28,15 +30,8 @@ export const DEFAULT_SETTINGS: Settings = {
   themePalette: 'sky',
   bgMotion: 'dynamic',
   settledMonths: [],
-  /** 2026-09 上半月汇总（无逐日流水）；公网从今天起记账 */
-  monthOpening: {
-    ym: '2026-09',
-    basicUsed: 1644.08,
-    specialUsed: 531,
-    expenseRmb: 2422.86,
-    incomeRmb: 247.78,
-    label: '9/1–9/15 汇总',
-  },
+  /** No personal prior-period summary on fresh install */
+  monthOpening: null,
 };
 
 export const DEFAULT_CATEGORIES: Category[] = [
