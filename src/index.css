@@ -43,8 +43,9 @@
     inset 0 -1px 0 rgba(147, 197, 253, 0.18);
   --glass-shadow: 0 8px 32px rgba(37, 99, 235, 0.12), 0 1px 0 rgba(255, 255, 255, 0.5);
   --glass-blur: blur(18px) saturate(180%);
-  --ease-spring: cubic-bezier(0.22, 1.55, 0.36, 1);
-  --ease-spring-soft: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1.75, 0.36, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.55, 0.64, 1);
+  --ease-spring-snap: cubic-bezier(0.18, 1.85, 0.32, 1);
   --radius-pill: 9999px;
   --radius-soft: 20px;
   --radius-card: 24px;
@@ -53,9 +54,9 @@
   /* Motion tokens — 200–350ms, ease-out curves */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
-  --dur-fast: 180ms;
-  --dur-med: 260ms;
-  --dur-slow: 320ms;
+  --dur-fast: 200ms;
+  --dur-med: 320ms;
+  --dur-slow: 420ms;
   font-family: "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", "Microsoft YaHei",
     system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -258,18 +259,26 @@ a {
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(14px) scale(0.985);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes glass-enter {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(12px) scale(0.96);
+  }
+  68% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.015);
   }
   to {
     opacity: 1;
@@ -330,7 +339,7 @@ a {
 
 /* Tab / page content enter */
 .page-view {
-  animation: page-enter var(--dur-med) var(--ease-out) both;
+  animation: page-enter var(--dur-slow) var(--ease-spring-soft) both;
   /* transform only during enter; final keyframe is identity so fixed dock stays viewport-fixed */
 }
 
@@ -367,7 +376,7 @@ a {
 }
 
 .page-view .glass {
-  animation: glass-enter var(--dur-slow) var(--ease-out) both;
+  animation: glass-enter var(--dur-slow) var(--ease-spring-soft) both;
 }
 
 .page-view .glass:nth-of-type(1) {
@@ -1115,7 +1124,7 @@ a {
     0 12px 40px rgba(37, 99, 235, 0.14),
     0 2px 12px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  animation: modal-card-in 480ms var(--ease-spring-soft) both;
+  animation: modal-card-in 560ms var(--ease-spring) both;
   overscroll-behavior: contain;
   flex-shrink: 0;
 }
@@ -2098,10 +2107,11 @@ html[data-palette="lilac"] {
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 0 -1px 0 rgba(59, 130, 246, 0.12);
   transition:
-    transform 520ms var(--ease-spring),
-    width 480ms var(--ease-spring-soft),
-    height 420ms var(--ease-spring-soft),
-    opacity 200ms ease;
+    transform 580ms var(--ease-spring-snap),
+    width 520ms var(--ease-spring-soft),
+    height 460ms var(--ease-spring-soft),
+    opacity 200ms ease,
+    border-radius 420ms var(--ease-spring-soft);
   will-change: transform, width;
   transform-origin: center center;
 }
@@ -2147,12 +2157,12 @@ html[data-palette="lilac"] {
 
 .liquid-dock .nav-item {
   transition:
-    transform 420ms var(--ease-spring),
+    transform 480ms var(--ease-spring-snap),
     color var(--dur-med) ease,
     background var(--dur-med) var(--ease-soft);
 }
 .liquid-dock .nav-item .nav-icon {
-  transition: transform 480ms var(--ease-spring);
+  transition: transform 520ms var(--ease-spring-snap);
   display: inline-flex;
 }
 .liquid-dock .nav-item.active .nav-icon {
@@ -2166,8 +2176,9 @@ html[data-palette="lilac"] {
 }
 
 @keyframes dock-icon-pop {
-  0% { transform: scale(0.86); }
-  55% { transform: scale(1.18); }
+  0% { transform: scale(0.82); }
+  45% { transform: scale(1.22); }
+  75% { transform: scale(1.08); }
   100% { transform: scale(1.12); }
 }
 
@@ -2291,6 +2302,20 @@ html[data-palette="lilac"] {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(239, 246, 255, 0.35));
   border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.dock-liquid-blob--dragging {
+  transition: none !important;
+  animation: none !important;
+  border-radius: 22px;
+  filter: saturate(1.15) brightness(1.04);
+}
+.dock-liquid-blob--morph {
+  border-radius: 22px / 16px;
+  filter: saturate(1.18) brightness(1.05);
+}
+.dock-liquid-blob--bump {
+  animation: dock-blob-bounce 640ms var(--ease-spring-snap);
 }
 
 @media (prefers-reduced-motion: reduce) {

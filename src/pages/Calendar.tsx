@@ -6,7 +6,6 @@ import {
   format,
   getDay,
   isSameMonth,
-  parseISO,
   startOfMonth,
   subMonths,
 } from 'date-fns';
@@ -26,7 +25,7 @@ import {
   type BudgetStatus,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
-import { normalizeTxDate } from '../utils/dates';
+import { normalizeTxDate, parseLocalDate } from '../utils/dates';
 
 interface Props {
   store: Store;
@@ -51,7 +50,7 @@ export function CalendarPage({ store }: Props) {
   const planOn = settings.dailyPlanCompareEnabled !== false;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   // Anchor "today" from local YYYY-MM-DD to avoid parseISO UTC off-by-one
-  const today = parseISO(`${todayStr}T12:00:00`);
+  const today = parseLocalDate(todayStr);
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -92,7 +91,7 @@ export function CalendarPage({ store }: Props) {
     return transactions.filter((t) => normalizeTxDate(t.date) === selected);
   }, [transactions, selected]);
 
-  const isSelectedSat = selected ? getDay(parseISO(selected)) === 6 : false;
+  const isSelectedSat = selected ? getDay(parseLocalDate(selected)) === 6 : false;
   const satMode = selected ? getSatMode(selected, settings) : settings.defaultSatMode;
 
   const monthSpend = useMemo(() => {
@@ -212,7 +211,7 @@ export function CalendarPage({ store }: Props) {
       </GlassCard>
 
       {selected && selectedStats && (
-        <GlassCard title={`${weekdayLabel(selected)} · ${format(parseISO(selected), 'M月d日')}`}>
+        <GlassCard title={`${weekdayLabel(selected)} · ${format(parseLocalDate(selected), 'M月d日')}`}>
           {planOn ? (
             <ProgressBar
               label="当日基础 vs 计划"

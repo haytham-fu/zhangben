@@ -3,15 +3,14 @@ import {
   endOfMonth,
   format,
   getDay,
-  parseISO,
   startOfMonth,
   startOfDay,
 } from 'date-fns';
 import type { SatMode, Settings, Transaction } from '../types';
-import { normalizeTxDate } from './dates';
+import { normalizeTxDate, parseLocalDate } from './dates';
 
 export function monthKey(date: Date | string): string {
-  const d = typeof date === 'string' ? parseISO(date) : date;
+  const d = typeof date === 'string' ? parseLocalDate(date) : date;
   return format(d, 'yyyy-MM');
 }
 
@@ -20,7 +19,7 @@ export function getSatMode(dateStr: string, settings: Settings): SatMode {
 }
 
 export function getDailyPlanAmount(dateStr: string, settings: Settings): number {
-  const d = parseISO(dateStr);
+  const d = parseLocalDate(dateStr);
   const dow = getDay(d); // 0=Sun ... 6=Sat
   const p = settings.dailyPlan;
   switch (dow) {
@@ -150,7 +149,7 @@ export function dayTxCount(txs: Transaction[], dateStr: string): number {
 }
 
 export function plannedBasicToDate(ym: string, today: Date, settings: Settings): number {
-  const start = startOfMonth(parseISO(`${ym}-01`));
+  const start = startOfMonth(parseLocalDate(`${ym}-01`));
   const monthEnd = endOfMonth(start);
   const end = startOfDay(today) < startOfDay(monthEnd) ? startOfDay(today) : monthEnd;
   if (end < start) return 0;
@@ -163,7 +162,7 @@ export function plannedBasicToDate(ym: string, today: Date, settings: Settings):
 }
 
 export function calendarProgress(ym: string, today: Date): number {
-  const start = startOfMonth(parseISO(`${ym}-01`));
+  const start = startOfMonth(parseLocalDate(`${ym}-01`));
   const monthEnd = endOfMonth(start);
   const totalDays = eachDayOfInterval({ start, end: monthEnd }).length;
   const todayStart = startOfDay(today);
@@ -244,5 +243,5 @@ export function buildAdvice(
 
 export function weekdayLabel(dateStr: string): string {
   const labels = ['日', '一', '二', '三', '四', '五', '六'];
-  return `周${labels[getDay(parseISO(dateStr))]}`;
+  return `周${labels[getDay(parseLocalDate(dateStr))]}`;
 }

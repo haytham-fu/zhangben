@@ -7,6 +7,7 @@ import { downloadBlob, renderLedgerInfographic } from '../utils/exportInfographi
 import {
   fetchProfileFromUrl,
   parseProfilePack,
+  safeProfileLabel,
 } from '../utils/profile';
 import { exportJson, importJson } from '../utils/storage';
 
@@ -265,7 +266,7 @@ export function SettingsPage({ store }: Props) {
             try {
               const pack = parseProfilePack(await file.text());
               applyProfilePack(pack);
-              setProfileMsg(`已应用：${pack.label || pack.name || file.name}`);
+              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name || file.name)}`);
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '导入失败');
             } finally {
@@ -293,7 +294,7 @@ export function SettingsPage({ store }: Props) {
             try {
               const pack = await fetchProfileFromUrl(profileUrl);
               applyProfilePack(pack);
-              setProfileMsg(`已应用：${pack.label || pack.name || '远程配置'}`);
+              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name, '远程配置')}`);
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '下载失败');
             } finally {
@@ -322,7 +323,7 @@ export function SettingsPage({ store }: Props) {
             try {
               const pack = parseProfilePack(profilePaste);
               applyProfilePack(pack);
-              setProfileMsg(`已应用：${pack.label || pack.name || '粘贴配置'}`);
+              setProfileMsg(`已应用：${safeProfileLabel(pack.label || pack.name, '粘贴配置')}`);
               setProfilePaste('');
             } catch (err) {
               setProfileMsg(err instanceof Error ? err.message : '解析失败');

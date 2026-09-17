@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 /** Local calendar date as YYYY-MM-DD (never UTC ISO date-only pitfalls). */
 export function localDateStr(d: Date = new Date()): string {
@@ -22,6 +22,15 @@ export function normalizeTxDate(raw: string | null | undefined): string {
   const t = Date.parse(trimmed);
   if (!Number.isNaN(t)) return localDateStr(new Date(t));
   return localDateStr();
+}
+
+/**
+ * Parse YYYY-MM-DD as local noon — avoids UTC-midnight weekday flips
+ * (calendar remaining / sat plan / weekday labels).
+ */
+export function parseLocalDate(dateStr: string | null | undefined): Date {
+  const d = normalizeTxDate(dateStr);
+  return parseISO(`${d}T12:00:00`);
 }
 
 export function isDateOnOrAfter(a: string, b: string): boolean {
