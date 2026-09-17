@@ -599,6 +599,8 @@ a {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .field label {
@@ -610,6 +612,10 @@ a {
 .field input,
 .field select,
 .field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 44px;
   padding: 10px 16px;
   border-radius: var(--radius-soft);
@@ -642,6 +648,56 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.row-2 > * {
+  min-width: 0;
+}
+
+/* Grocery item cost + meals: always stack to avoid AmountInput overflow on phones */
+.row-2.grocery-cost-meals {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 400px) {
+  .row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.link-btn {
+  display: inline;
+  padding: 0;
+  margin: 0 0 0 4px;
+  border: none;
+  background: none;
+  color: var(--blue-700, #1d4ed8);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:active {
+  opacity: 0.75;
+}
+
+.grocery-backfill-link-wrap {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.pantry-backfill-cta {
+  margin: 4px 0 8px;
+  min-height: 48px;
+  font-size: 1rem;
+  gap: 8px;
+}
+
+.pantry-backfill-path {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
 }
 
 /* Progress bars — scaleX (compositor) instead of width */
@@ -2581,6 +2637,9 @@ html[data-palette="lilac"] {
   background: rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .grocery-draft-head {

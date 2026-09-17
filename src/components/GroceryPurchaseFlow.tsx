@@ -22,6 +22,7 @@ import {
 import { PAYMENT_LABEL } from '../utils/payment';
 import { AmountInput } from './AmountInput';
 import { CapacityEstimatePanel } from './CapacityEstimatePanel';
+import { PantryBackfillSheet } from './PantryBackfillSheet';
 import { IconPayment } from './CuteIcons';
 import { GlassCard } from './GlassCard';
 import { ModalPortal } from './ModalPortal';
@@ -83,6 +84,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   const [walletId, setWalletId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [payOpen, setPayOpen] = useState(false);
+  const [backfillOpen, setBackfillOpen] = useState(false);
 
   function addKind(kind: GroceryKind, name?: string) {
     const label =
@@ -236,6 +238,17 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               />
             </div>
 
+            <p className="hint grocery-backfill-link-wrap">
+              已有过往食材要入库？
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setBackfillOpen(true)}
+              >
+                只补登到冰箱、不记今天支出
+              </button>
+            </p>
+
             <p className="sheet-section-label section-gap">点选买了什么</p>
             <div className="chip-row grocery-kind-row">
               {GROCERY_KIND_OPTIONS.map((k) => (
@@ -334,7 +347,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                       />
                     )}
 
-                    <div className="row-2">
+                    <div className="row-2 grocery-cost-meals">
                       <div className="field">
                         <label>{aaHalf ? '购入总额（对半前）' : '我实际出的钱'}</label>
                         <AmountInput
@@ -525,6 +538,12 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
           </div>
         </ModalPortal>
       )}
+
+      <PantryBackfillSheet
+        store={store}
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+      />
     </>
   );
 }
