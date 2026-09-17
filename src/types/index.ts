@@ -170,6 +170,12 @@ export interface MonthOpening {
   label?: string;
 }
 
+export interface PairedDevice {
+  id: string;
+  name: string;
+  lastSyncAt: string;
+}
+
 export interface Settings {
   basicBudget: number;
   specialBudget: number;
@@ -209,6 +215,18 @@ export interface Settings {
    * Budget "used" = opening + txs in this ym.
    */
   monthOpening?: MonthOpening | null;
+  /** Stable id for this browser/device (generated once). */
+  deviceId?: string;
+  /** Editable display name shown in paired device list. */
+  deviceName?: string;
+  /** Shared pairing code (6–8 chars) when devices are linked. */
+  linkCode?: string | null;
+  /** HTTPS URL of hosted sync JSON (网盘 / GitHub raw). */
+  lastSyncUrl?: string | null;
+  /** When true, try pull from lastSyncUrl on app open. */
+  autoPullSync?: boolean;
+  /** Devices seen in sync packs (id + name + lastSyncAt). */
+  knownDevices?: PairedDevice[];
 }
 
 export interface AppState {

@@ -32,6 +32,12 @@ export const DEFAULT_SETTINGS: Settings = {
   settledMonths: [],
   /** No personal prior-period summary on fresh install */
   monthOpening: null,
+  deviceId: '',
+  deviceName: '我的设备',
+  linkCode: null,
+  lastSyncUrl: null,
+  autoPullSync: false,
+  knownDevices: [],
 };
 
 export const DEFAULT_CATEGORIES: Category[] = [

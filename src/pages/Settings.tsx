@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AmountInput } from '../components/AmountInput';
 import { GlassCard } from '../components/GlassCard';
 import type { Store } from '../hooks/useStore';
@@ -11,24 +11,174 @@ import {
   safeProfileLabel,
 } from '../utils/profile';
 import { exportJson, importJson } from '../utils/storage';
+import {
+  buildSyncPackJson,
+  consumePairCodeFromLocation,
+  fetchSyncPackFromUrl,
+  generateLinkCode,
+  normalizeLinkCode,
+  pairDeepLink,
+  parseSyncPack,
+  syncExportFilename,
+  type SyncImportMode,
+} from '../utils/sync';
 
 interface Props {
   store: Store;
 }
 
 export function SettingsPage({ store }: Props) {
-  const { settings, updateSettings, currentYm, replaceState, applyProfilePack, resetAll, state } = store;
+  const {
+    settings,
+    updateSettings,
+    currentYm,
+    replaceState,
+    applyProfilePack,
+    applySyncPack,
+    resetAll,
+    state,
+  } = store;
   const fileRef = useRef<HTMLInputElement>(null);
   const profileFileRef = useRef<HTMLInputElement>(null);
+  const syncFileRef = useRef<HTMLInputElement>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [jpgBusy, setJpgBusy] = useState(false);
   const [profileUrl, setProfileUrl] = useState('');
   const [profilePaste, setProfilePaste] = useState('');
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+  const [pairInput, setPairInput] = useState('');
+  const [syncUrlDraft, setSyncUrlDraft] = useState(settings.lastSyncUrl ?? '');
+  const [importMode, setImportMode] = useState<SyncImportMode>('merge');
+  const [pendingPair, setPendingPair] = useState<string | null>(null);
 
   const dp = settings.dailyPlan;
   const planOn = settings.dailyPlanCompareEnabled === true;
+  const linked = Boolean(settings.linkCode);
+
+  useEffect(() => {
+    setSyncUrlDraft(settings.lastSyncUrl ?? '');
+  }, [settings.lastSyncUrl]);
+
+  // Deep link ?pair=CODE → prompt import (App may stash in sessionStorage)
+  useEffect(() => {
+    let code = consumePairCodeFromLocation();
+    if (!code) {
+      try {
+        code = sessionStorage.getItem('zhangben-pending-pair');
+        if (code) sessionStorage.removeItem('zhangben-pending-pair');
+      } catch {
+        /* ignore */
+      }
+    }
+    const normalized = normalizeLinkCode(code);
+    if (normalized) {
+      setPendingPair(normalized);
+      setPairInput(normalized);
+      setSyncMsg(
+        `收到关联码 ${normalized}：请导入对方发来的同步文件，或填写同步链接后「立即同步」。`,
+      );
+    }
+  }, []);
+
+  function downloadSyncFile() {
+    const json = buildSyncPackJson(state);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = syncExportFilename(settings.linkCode);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function handleGeneratePair() {
+    const code = generateLinkCode(6);
+    const now = new Date().toISOString();
+    updateSettings({
+      linkCode: code,
+      knownDevices: [
+        {
+          id: settings.deviceId || 'local',
+          name: settings.deviceName || '我的设备',
+          lastSyncAt: now,
+        },
+        ...(settings.knownDevices ?? []).filter((d) => d.id !== settings.deviceId),
+      ],
+    });
+    // Export after state flush: use next tick with patched settings
+    setTimeout(() => {
+      const nextState = {
+        ...state,
+        settings: { ...settings, linkCode: code },
+      };
+      const json = buildSyncPackJson(nextState);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = syncExportFilename(code);
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 0);
+    const link = pairDeepLink(code);
+    void copyText(link).then((ok) => {
+      setSyncMsg(
+        ok
+          ? `已生成关联码 ${code}，同步文件已下载；配对链接已复制。用隔空投送/网盘发给另一台设备，在那边导入同一文件即可关联。`
+          : `已生成关联码 ${code}，同步文件已下载。配对链接：${link}`,
+      );
+    });
+  }
+
+  async function applyParsed(text: string, mode: SyncImportMode, sourceLabel: string) {
+    const parsed = parseSyncPack(text);
+    // If user typed a pair code, require match when pack has a code
+    const want = normalizeLinkCode(pairInput) || pendingPair;
+    if (want && parsed.linkCode && parsed.linkCode !== want) {
+      throw new Error(`同步文件关联码为 ${parsed.linkCode}，与输入的 ${want} 不一致`);
+    }
+    const result = applySyncPack(parsed.state, mode);
+    if (parsed.linkCode) {
+      updateSettings({ linkCode: parsed.linkCode });
+    } else if (want) {
+      updateSettings({ linkCode: want });
+    }
+    setPendingPair(null);
+    setSyncMsg(
+      mode === 'replace'
+        ? `${sourceLabel}：已整包替换本地数据`
+        : `${sourceLabel}：已合并（新增 ${result.addedTx} 笔流水）`,
+    );
+  }
+
+  async function pullFromUrl(url: string) {
+    const trimmed = url.trim();
+    if (!trimmed) throw new Error('请填写同步链接');
+    const parsed = await fetchSyncPackFromUrl(trimmed);
+    const result = applySyncPack(parsed.state, importMode);
+    updateSettings({
+      lastSyncUrl: trimmed,
+      linkCode: parsed.linkCode ?? settings.linkCode ?? null,
+    });
+    setSyncUrlDraft(trimmed);
+    setSyncMsg(
+      importMode === 'replace'
+        ? '已从链接整包替换'
+        : `已从链接合并（新增 ${result.addedTx} 笔流水）`,
+    );
+  }
 
   async function exportJpg() {
     setJpgBusy(true);
@@ -357,6 +507,189 @@ export function SettingsPage({ store }: Props) {
         {profileMsg && <p className="hint section-gap">{profileMsg}</p>}
       </GlassCard>
 
+      <GlassCard title="关联设备">
+        <p className="hint" style={{ marginTop: 0 }}>
+          关联后用<strong>同一同步文件或链接</strong>对齐手机与电脑——不是账号云实时同步，但操作上像「关联设备」。
+        </p>
+
+        <div className="field">
+          <label>本机名称</label>
+          <input
+            type="text"
+            value={settings.deviceName ?? ''}
+            maxLength={32}
+            placeholder="例如：我的 iPhone"
+            onChange={(e) => updateSettings({ deviceName: e.target.value })}
+          />
+        </div>
+        <p className="hint" style={{ marginTop: -6 }}>
+          设备 ID：{(settings.deviceId ?? '').slice(0, 8)}…
+          {linked ? ` · 已关联 ${settings.linkCode}` : ' · 尚未关联'}
+        </p>
+
+        {(settings.knownDevices ?? []).length > 0 && (
+          <div className="section-gap">
+            <p className="sheet-section-label">已知设备</p>
+            <ul className="tx-list" style={{ gap: 6 }}>
+              {(settings.knownDevices ?? []).map((d) => (
+                <li key={d.id} className="hint" style={{ margin: 0 }}>
+                  {d.name}
+                  {d.id === settings.deviceId ? '（本机）' : ''}
+                  {' · '}
+                  {d.lastSyncAt ? d.lastSyncAt.slice(0, 16).replace('T', ' ') : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="btn btn-primary btn-block section-gap"
+          disabled={syncBusy}
+          onClick={handleGeneratePair}
+        >
+          生成关联
+        </button>
+        <p className="hint">
+          生成 6 位关联码并下载 <code>zhangben-sync-码.json</code>；把文件隔空投送/传到网盘，另一台导入即可。也可复制配对链接（需自行托管同一 JSON）。
+        </p>
+        {linked && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-block"
+            onClick={() => {
+              const link = pairDeepLink(settings.linkCode!);
+              void copyText(link).then((ok) =>
+                setSyncMsg(ok ? `配对链接已复制：${link}` : `配对链接：${link}`),
+              );
+            }}
+          >
+            复制配对链接
+          </button>
+        )}
+
+        <div className="field section-gap">
+          <label>输入关联码 / 导入同步文件</label>
+          <input
+            type="text"
+            value={pairInput}
+            placeholder="对方的 6–8 位关联码（可选）"
+            onChange={(e) => setPairInput(e.target.value.toUpperCase())}
+            autoCapitalize="characters"
+          />
+        </div>
+        <p className="sheet-section-label">导入方式</p>
+        <div className="chip-row" style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            className={`chip ${importMode === 'merge' ? 'active' : ''}`}
+            onClick={() => setImportMode('merge')}
+          >
+            合并（推荐）
+          </button>
+          <button
+            type="button"
+            className={`chip ${importMode === 'replace' ? 'active' : ''}`}
+            onClick={() => setImportMode('replace')}
+          >
+            整包替换
+          </button>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          disabled={syncBusy}
+          onClick={() => syncFileRef.current?.click()}
+        >
+          选择同步文件导入
+        </button>
+        <input
+          ref={syncFileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setSyncBusy(true);
+            setSyncMsg('');
+            try {
+              await applyParsed(await file.text(), importMode, `文件 ${file.name}`);
+            } catch (err) {
+              setSyncMsg(err instanceof Error ? err.message : '导入失败');
+            } finally {
+              setSyncBusy(false);
+              e.target.value = '';
+            }
+          }}
+        />
+
+        <div className="field section-gap">
+          <label>同步链接（https，可选）</label>
+          <input
+            type="url"
+            placeholder="https://raw.githubusercontent.com/…/zhangben-sync-XXXX.json"
+            value={syncUrlDraft}
+            onChange={(e) => setSyncUrlDraft(e.target.value)}
+            onBlur={() => {
+              const v = syncUrlDraft.trim();
+              if (v !== (settings.lastSyncUrl ?? '')) updateSettings({ lastSyncUrl: v || null });
+            }}
+          />
+        </div>
+        <div className="toggle-row">
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 650 }}>打开时自动拉取</div>
+            <p className="hint" style={{ margin: '4px 0 0' }}>
+              若已保存同步链接，进入账本时尝试合并拉取（需网络）
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${settings.autoPullSync ? 'on' : ''}`}
+            aria-label="打开时自动拉取"
+            onClick={() => updateSettings({ autoPullSync: !settings.autoPullSync })}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-primary btn-block section-gap"
+          disabled={syncBusy}
+          onClick={async () => {
+            setSyncBusy(true);
+            setSyncMsg('');
+            try {
+              if (syncUrlDraft.trim()) {
+                await pullFromUrl(syncUrlDraft);
+              } else {
+                syncFileRef.current?.click();
+                setSyncMsg('浏览器无法记住上次文件，请选择同步文件；或先填写 https 同步链接。');
+              }
+            } catch (err) {
+              setSyncMsg(err instanceof Error ? err.message : '同步失败');
+            } finally {
+              setSyncBusy(false);
+            }
+          }}
+        >
+          {syncBusy ? '同步中…' : '立即同步'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          disabled={syncBusy}
+          onClick={() => {
+            downloadSyncFile();
+            setSyncMsg(`已导出 ${syncExportFilename(settings.linkCode)}，可覆盖网盘上的同名文件供另一台拉取。`);
+          }}
+        >
+          导出同步包
+        </button>
+        {syncMsg && <p className="hint section-gap">{syncMsg}</p>}
+      </GlassCard>
+
       <GlassCard title="数据">
         <button
           type="button"
@@ -387,7 +720,7 @@ export function SettingsPage({ store }: Props) {
           className="btn btn-secondary btn-block section-gap"
           onClick={() => fileRef.current?.click()}
         >
-          导入备份 JSON
+          导入备份 JSON（整包替换）
         </button>
         <input
           ref={fileRef}
@@ -427,7 +760,7 @@ export function SettingsPage({ store }: Props) {
         >
           清空本地数据
         </button>
-        <p className="hint">数据仅保存在本机浏览器 localStorage，无登录、不上云。</p>
+        <p className="hint">账本数据保存在本机浏览器；跨设备请用上方「关联设备」同步文件/链接。</p>
       </GlassCard>
 
     </>

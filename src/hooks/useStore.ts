@@ -22,6 +22,7 @@ import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
 import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount } from '../utils/budget';
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
 import { mergeProfileSettings, mergeProfileTransactions, type LedgerProfilePack } from '../utils/profile';
+import { mergeSyncIntoLocal, type SyncImportMode } from '../utils/sync';
 import {
   applyTransferToWallet,
   createWallet,
@@ -582,6 +583,37 @@ export function useStore() {
     return added;
   }, []);
 
+  /** Apply a full-device sync pack: replace all local state, or merge txs/wallets/pantry by id. */
+  const applySyncPack = useCallback(
+    (remote: AppState, mode: SyncImportMode): { addedTx: number } => {
+      if (mode === 'replace') {
+        setState((s) => {
+          const localId = s.settings.deviceId;
+          const localName = s.settings.deviceName;
+          return {
+            ...remote,
+            wallets: ensurePigWallet(remote.wallets ?? []),
+            settings: {
+              ...remote.settings,
+              deviceId: localId || remote.settings.deviceId,
+              deviceName: localName || remote.settings.deviceName,
+              settledMonths: remote.settings.settledMonths ?? [],
+            },
+          };
+        });
+        return { addedTx: remote.transactions.length };
+      }
+      let addedTx = 0;
+      setState((s) => {
+        const merged = mergeSyncIntoLocal(s, remote);
+        addedTx = merged.addedTx;
+        return merged.state;
+      });
+      return { addedTx };
+    },
+    [],
+  );
+
   return {
     state,
     settings: state.settings,
@@ -609,6 +641,7 @@ export function useStore() {
     removePantryItem,
     replaceState,
     applyProfilePack,
+    applySyncPack,
     resetAll,
   };
 }

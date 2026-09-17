@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { EmptyState } from '../components/EmptyState';
 import { IconEmptyLedger } from '../components/CuteIcons';
 import { GlassCard } from '../components/GlassCard';
@@ -7,8 +8,9 @@ import { EditTransactionSheet } from '../components/EditTransactionSheet';
 import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
 import type { PaymentMethod, Transaction } from '../types';
-import { filterMonth } from '../utils/budget';
+import { filterMonth, weekdayLabel } from '../utils/budget';
 import { formatMoney, formatRmb } from '../utils/currency';
+import { normalizeTxDate, parseLocalDate } from '../utils/dates';
 import { PAYMENT_LABEL, PAYMENT_OPTIONS } from '../utils/payment';
 
 interface Props {
@@ -21,11 +23,51 @@ const TYPE_LABEL = {
   income: '收入',
 } as const;
 
+function sortTxs(txs: Transaction[]): Transaction[] {
+  return [...txs].sort((a, b) => {
+    const da = normalizeTxDate(a.date);
+    const db = normalizeTxDate(b.date);
+    if (da !== db) return db.localeCompare(da);
+    const ca = a.createdAt ?? '';
+    const cb = b.createdAt ?? '';
+    if (ca !== cb) return cb.localeCompare(ca);
+    return b.id.localeCompare(a.id);
+  });
+}
+
+function groupByDay(txs: Transaction[]): { date: string; items: Transaction[]; daySpend: number }[] {
+  const sorted = sortTxs(txs);
+  const order: string[] = [];
+  const map = new Map<string, Transaction[]>();
+  for (const tx of sorted) {
+    const d = normalizeTxDate(tx.date);
+    if (!map.has(d)) {
+      map.set(d, []);
+      order.push(d);
+    }
+    map.get(d)!.push(tx);
+  }
+  return order.map((date) => {
+    const items = map.get(date)!;
+    const daySpend = items
+      .filter((t) => t.type === 'expense' && t.kind !== 'topup')
+      .reduce((a, t) => a + t.amountRmb, 0);
+    return { date, items, daySpend };
+  });
+}
+
+function dayHeaderLabel(dateStr: string): string {
+  const d = parseLocalDate(dateStr);
+  return `${format(d, 'M月d日')} · ${weekdayLabel(dateStr)}`;
+}
+
 export function TransactionList({ store }: Props) {
-  const { transactions, categoryMap, walletMap, categories, currentYm, deleteTransaction } = store;
+  const { transactions, categoryMap, walletMap, wallets, categories, currentYm, deleteTransaction } = store;
   const [ym, setYm] = useState(currentYm);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
+  /** all | basic living | special | wallet:<id> */
+  const [partFilter, setPartFilter] = useState<'all' | 'basic' | 'special' | `wallet:${string}`>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -35,18 +77,45 @@ export function TransactionList({ store }: Props) {
     if (filter === 'expense') txs = txs.filter((t) => t.type === 'expense' && t.kind !== 'topup');
     if (filter === 'income') txs = txs.filter((t) => t.type === 'income');
     if (payFilter !== 'all') txs = txs.filter((t) => t.paymentMethod === payFilter);
+    if (partFilter === 'basic') {
+      txs = txs.filter(
+        (t) => t.type === 'expense' && t.kind !== 'topup' && t.bucket === 'basic' && !t.isSpecial,
+      );
+    } else if (partFilter === 'special') {
+      txs = txs.filter(
+        (t) =>
+          t.type === 'expense' &&
+          t.kind !== 'topup' &&
+          (t.bucket === 'special' || !!t.isSpecial),
+      );
+    } else if (partFilter.startsWith('wallet:')) {
+      const wid = partFilter.slice('wallet:'.length);
+      txs = txs.filter((t) => t.walletId === wid);
+    }
     return txs;
-  }, [transactions, ym, filter, payFilter]);
+  }, [transactions, ym, filter, payFilter, partFilter]);
+
+  const dayGroups = useMemo(() => groupByDay(list), [list]);
 
   const sumExpense = list
     .filter((t) => t.type === 'expense' && t.kind !== 'topup')
     .reduce((a, t) => a + t.amountRmb, 0);
   const sumIncome = list.filter((t) => t.type === 'income').reduce((a, t) => a + t.amountRmb, 0);
 
-  const filterActive = filter !== 'all' || payFilter !== 'all';
+  const partLabel =
+    partFilter === 'all'
+      ? '分区不限'
+      : partFilter === 'basic'
+        ? '基础生活'
+        : partFilter === 'special'
+          ? '专项'
+          : walletMap.get(partFilter.slice('wallet:'.length))?.name ?? '荷包';
+
+  const filterActive = filter !== 'all' || payFilter !== 'all' || partFilter !== 'all';
   const filterSummary = [
     TYPE_LABEL[filter],
     payFilter === 'all' ? '支付不限' : PAYMENT_LABEL[payFilter],
+    partLabel,
   ].join(' · ');
 
   const closeFilterSheet = () => setFilterOpen(false);
@@ -89,14 +158,24 @@ export function TransactionList({ store }: Props) {
           <EmptyState icon={<IconEmptyLedger />} title="本月暂无记录" hint="换个月份，或去记账补一笔" />
         ) : (
           <ul className="tx-list">
-            {list.map((tx) => (
-              <TransactionItem
-                key={tx.id}
-                tx={tx}
-                category={categoryMap.get(tx.categoryId)}
-                wallet={tx.walletId ? walletMap.get(tx.walletId) : undefined}
-                onClick={() => setSelected(tx)}
-              />
+            {dayGroups.map((group) => (
+              <li key={group.date} className="tx-day-group">
+                <div className="tx-day-header">
+                  <span className="tx-day-title">{dayHeaderLabel(group.date)}</span>
+                  <span className="tx-day-meta">支出 {formatRmb(group.daySpend)}</span>
+                </div>
+                <ul className="tx-day-items">
+                  {group.items.map((tx) => (
+                    <TransactionItem
+                      key={tx.id}
+                      tx={tx}
+                      category={categoryMap.get(tx.categoryId)}
+                      wallet={tx.walletId ? walletMap.get(tx.walletId) : undefined}
+                      onClick={() => setSelected(tx)}
+                    />
+                  ))}
+                </ul>
+              </li>
             ))}
           </ul>
         )}
@@ -155,6 +234,48 @@ export function TransactionList({ store }: Props) {
                     onClick={() => setPayFilter(o.id)}
                   >
                     {o.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="tx-filter-section section-gap">
+              <p className="sheet-section-label tx-filter-section-title">预算分区</p>
+              <div className="chip-row">
+                <button
+                  type="button"
+                  className={`chip ${partFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setPartFilter('all')}
+                >
+                  分区不限
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${partFilter === 'basic' ? 'active' : ''}`}
+                  onClick={() => setPartFilter('basic')}
+                >
+                  基础生活支出
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${partFilter === 'special' ? 'active' : ''}`}
+                  onClick={() => setPartFilter('special')}
+                >
+                  专项支出
+                </button>
+                {wallets.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    className={`chip chip-with-icon ${partFilter === `wallet:${w.id}` ? 'active' : ''}`}
+                    onClick={() => setPartFilter(`wallet:${w.id}`)}
+                  >
+                    <span
+                      className="wallet-chip-dot"
+                      style={{ background: w.color }}
+                      aria-hidden
+                    />
+                    {w.name}
                   </button>
                 ))}
               </div>

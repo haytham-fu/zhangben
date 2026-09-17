@@ -10,6 +10,7 @@ import {
 import { costPerMeal, roundMoney } from './grocery';
 import { ensurePigWallet, normalizeWallet } from './wallets';
 import { normalizeTxDate } from './dates';
+import { ensureDeviceSettings, normalizeLinkCode, normalizePairedDevices, normalizeDeviceName } from './device';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -217,8 +218,19 @@ export function normalizeSettings(raw: unknown): Settings {
       ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
       : [],
     monthOpening: monthOpening ?? null,
+    deviceId: typeof partial.deviceId === 'string' ? partial.deviceId.trim().slice(0, 80) : '',
+    deviceName: normalizeDeviceName(partial.deviceName, DEFAULT_SETTINGS.deviceName ?? '我的设备'),
+    linkCode: normalizeLinkCode(partial.linkCode),
+    lastSyncUrl:
+      typeof partial.lastSyncUrl === 'string' && partial.lastSyncUrl.trim()
+        ? partial.lastSyncUrl.trim().slice(0, 500)
+        : null,
+    autoPullSync: partial.autoPullSync === true,
+    knownDevices: normalizePairedDevices(partial.knownDevices),
   };
 }
+
+// Note: loadState wraps with ensureDeviceSettings for stable deviceId.
 
 function normalizeCategories(list: unknown): Category[] {
   const base =
@@ -254,7 +266,7 @@ export function loadState(): AppState {
   }
   const data = safeParse<Partial<AppState>>(raw);
   return {
-    settings: normalizeSettings(data?.settings),
+    settings: ensureDeviceSettings(normalizeSettings(data?.settings)),
     transactions: normalizeTransactions(data?.transactions),
     categories: normalizeCategories(data?.categories),
     wallets: data?.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
@@ -273,7 +285,7 @@ export function exportJson(state: AppState): string {
 export function importJson(raw: string): AppState {
   const data = JSON.parse(raw) as Partial<AppState>;
   return {
-    settings: normalizeSettings(data.settings),
+    settings: ensureDeviceSettings(normalizeSettings(data.settings)),
     transactions: normalizeTransactions(data.transactions),
     categories: normalizeCategories(data.categories),
     wallets: data.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
