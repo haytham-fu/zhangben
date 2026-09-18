@@ -98,7 +98,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
 
   return (
     <>
-      <GlassCard title="自己做饭">
+      <GlassCard title="自己做饭" className="cook-from-pantry">
         <div className="chip-row" style={{ marginBottom: 12 }}>
           <button type="button" className="chip" onClick={onCancel}>
             ← 返回

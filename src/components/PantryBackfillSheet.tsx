@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Store } from '../hooks/useStore';
 import type { GroceryKind } from '../types';
 import {
@@ -35,6 +35,15 @@ function emptyBackfill(): BackfillDraft {
   };
 }
 
+const KIND_CHIP_OPTIONS: { kind: GroceryKind; label: string; icon: string }[] = [
+  ...GROCERY_KIND_OPTIONS,
+  { kind: 'custom', label: '其他', icon: '🛒' },
+];
+
+function chipLabel(kind: GroceryKind): string {
+  return KIND_CHIP_OPTIONS.find((k) => k.kind === kind)?.label ?? kind;
+}
+
 function mealsFromCapacity(
   kind: GroceryKind,
   name: string,
@@ -57,9 +66,14 @@ interface Props {
 export function PantryBackfillSheet({ store, open, onClose }: Props) {
   const { addPantryBackfill } = store;
   const [draft, setDraft] = useState<BackfillDraft>(() => emptyBackfill());
+  /** Last name we auto-filled from a kind chip; used so custom typed names are preserved. */
+  const autoFilledNameRef = useRef('');
 
   useEffect(() => {
-    if (open) setDraft(emptyBackfill());
+    if (open) {
+      setDraft(emptyBackfill());
+      autoFilledNameRef.current = '';
+    }
   }, [open]);
 
   const capacityCtx = useMemo(
@@ -75,13 +89,20 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
   }, [draft.remainMode, draft.capacityRaw, draft.capacityUnit, capacityCtx.profile]);
 
   function setKind(kind: GroceryKind) {
-    const ctx = resolveBackfillCapacityProfile(kind, draft.name);
+    const label = chipLabel(kind);
+    const trimmed = draft.name.trim();
+    const shouldAutofill =
+      !trimmed || trimmed === autoFilledNameRef.current;
+    const nextName = shouldAutofill ? label : draft.name;
+    if (shouldAutofill) autoFilledNameRef.current = label;
+
+    const ctx = resolveBackfillCapacityProfile(kind, nextName);
     const unit = ctx.profile ? defaultUnit(ctx.profile) : 'g';
     const meals =
       draft.remainMode === 'capacity'
-        ? mealsFromCapacity(kind, draft.name, draft.capacityRaw, unit)
+        ? mealsFromCapacity(kind, nextName, draft.capacityRaw, unit)
         : draft.meals;
-    setDraft({ ...draft, kind, capacityUnit: unit, meals });
+    setDraft({ ...draft, kind, name: nextName, capacityUnit: unit, meals });
   }
 
   function applyCapacity(raw: string, unit: CapUnit, name?: string) {
@@ -97,11 +118,7 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
   }
 
   function save() {
-    const name = draft.name.trim();
-    if (!name) {
-      alert('请填写食材名称');
-      return;
-    }
+    const name = draft.name.trim() || chipLabel(draft.kind);
     if (!(draft.meals > 0)) {
       alert(
         draft.remainMode === 'capacity'
@@ -119,11 +136,6 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
     onClose();
   }
 
-  const kindOptions: { kind: GroceryKind; label: string; icon: string }[] = [
-    ...GROCERY_KIND_OPTIONS,
-    { kind: 'custom', label: '其他', icon: '🛒' },
-  ];
-
   if (!open) return null;
 
   return (
@@ -140,7 +152,7 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
           <h2 className="glass-title">补登食材</h2>
           <div className="modal-sheet-body">
             <p className="hint" style={{ marginTop: 0 }}>
-              只写入冰箱库存，不记金额与支出。可直接写还能吃几顿，或填剩余克/毫升由网站估算。
+              只写入冰箱库存，不记金额与支出。点选品类即可，名称可空；也可手填还能吃几顿，或写剩余克/毫升由网站估算。
             </p>
 
             <div className="field">
@@ -155,8 +167,7 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
                     setDraft({ ...draft, name });
                   }
                 }}
-                placeholder="例如：五花肉"
-                autoFocus
+                placeholder="点选品类即可，名称可空"
               />
             </div>
 
@@ -164,7 +175,7 @@ export function PantryBackfillSheet({ store, open, onClose }: Props) {
               品类
             </p>
             <div className="chip-row grocery-kind-row" style={{ marginBottom: 12 }}>
-              {kindOptions.map((k) => (
+              {KIND_CHIP_OPTIONS.map((k) => (
                 <button
                   key={k.kind}
                   type="button"

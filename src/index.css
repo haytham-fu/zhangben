@@ -2748,8 +2748,15 @@ html[data-palette="lilac"] {
   gap: 2px;
 }
 
+/* 自己做饭：卡片相对视口留白，内层日期/列表不贴边 */
+.cook-from-pantry.glass {
+  padding: 18px 18px 20px;
+  margin-inline: 2px;
+  box-sizing: border-box;
+}
+
 .cook-sticky-spacer {
-  height: 88px;
+  height: 96px;
 }
 
 .cook-sticky-bar {
@@ -2758,21 +2765,28 @@ html[data-palette="lilac"] {
   right: 0;
   bottom: 0;
   z-index: 9000;
-  padding: 10px 14px calc(12px + var(--safe-bottom) + var(--dock-height));
+  padding-top: 10px;
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(12px + var(--safe-bottom) + var(--dock-height));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
   pointer-events: none;
   transform: translateZ(0);
   overscroll-behavior: contain;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
 }
 
 .cook-sticky-inner {
   pointer-events: auto;
-  max-width: 520px;
+  width: 100%;
+  max-width: 448px; /* 对齐 app-shell 内容宽：480 - 侧边留白 */
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-card);
   border: 1px solid var(--glass-border);
   background: linear-gradient(
@@ -2784,6 +2798,7 @@ html[data-palette="lilac"] {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow: var(--glass-shadow), var(--glass-highlight);
+  box-sizing: border-box;
 }
 
 .cook-sticky-total {
