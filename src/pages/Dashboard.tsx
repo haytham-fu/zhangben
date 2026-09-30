@@ -12,6 +12,7 @@ import {
   dailyStatus,
   filterMonth,
   getSatMode,
+  isBudgetExpense,
   weekdayLabel,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
@@ -53,7 +54,7 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   const catSummary = (() => {
     const map = new Map<string, number>();
     for (const t of monthTxs) {
-      if (t.type !== 'expense' || t.kind === 'topup') continue;
+      if (!isBudgetExpense(t)) continue;
       if (!opts.includeSpecial && t.isSpecial) continue;
       map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amountRmb);
     }

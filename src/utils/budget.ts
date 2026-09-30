@@ -42,9 +42,9 @@ export function getDailyPlanAmount(dateStr: string, settings: Settings): number 
   }
 }
 
-/** Budget-counting expense: not topup; expense type */
+/** 买菜只入库，做饭使用食材时才计入预算。 */
 export function isBudgetExpense(tx: Transaction): boolean {
-  return tx.type === 'expense' && tx.kind !== 'topup';
+  return tx.type === 'expense' && tx.kind !== 'topup' && !tx.isGroceryPurchase;
 }
 
 export function isBudgetIncome(tx: Transaction): boolean {

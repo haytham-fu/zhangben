@@ -92,6 +92,15 @@ function normalizePantryItems(list: unknown): PantryItem[] {
         kind === 'staple' ||
         kind === 'fruit' ||
         kind === 'seasoning' ||
+        kind === 'seafood' ||
+        kind === 'dairy' ||
+        kind === 'frozen' ||
+        kind === 'snack' ||
+        kind === 'drink' ||
+        kind === 'beans' ||
+        kind === 'mushroom' ||
+        kind === 'bakery' ||
+        kind === 'ready' ||
         kind === 'custom'
           ? kind
           : 'custom',
@@ -102,6 +111,7 @@ function normalizePantryItems(list: unknown): PantryItem[] {
       boughtDate: typeof p.boughtDate === 'string' && p.boughtDate ? p.boughtDate : '',
       notes: typeof p.notes === 'string' ? p.notes : undefined,
       purchaseTxId: p.purchaseTxId ?? null,
+      walletId: typeof p.walletId === 'string' ? p.walletId : null,
     });
   }
   return out;
@@ -233,14 +243,15 @@ export function normalizeSettings(raw: unknown): Settings {
 // Note: loadState wraps with ensureDeviceSettings for stable deviceId.
 
 function normalizeCategories(list: unknown): Category[] {
-  const base =
-    Array.isArray(list) && list.length > 0 ? (list as Category[]) : [...DEFAULT_CATEGORIES];
+  const imported = Array.isArray(list) && list.length > 0 ? (list as Category[]) : [];
+  const ids = new Set(imported.map((c) => c.id));
+  const base = [...imported, ...DEFAULT_CATEGORIES.filter((c) => !ids.has(c.id))];
   return base.map((c) => {
     if (c.id === 'membership') {
       return { ...c, name: '月度支出', icon: c.icon === '🎵' ? '📅' : c.icon || '📅' };
     }
     if (c.id === 'groceries') {
-      return { ...c, name: '买菜支出', icon: c.icon || '🥬' };
+      return { ...c, name: '买菜入库', icon: c.icon || '🥬' };
     }
     return c;
   });
@@ -252,9 +263,19 @@ function normalizeCategories(list: unknown): Category[] {
  * copy v1 → v2 so reopen does not look like a wipe.
  */
 export function loadState(): AppState {
-  let raw = localStorage.getItem(STORAGE_KEY);
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Storage may be blocked; keep the app usable and warn on save.
+  }
   if (raw == null) {
-    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    let legacy: string | null = null;
+    try {
+      legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // Same blocked storage area as above.
+    }
     if (legacy != null) {
       try {
         localStorage.setItem(STORAGE_KEY, legacy);

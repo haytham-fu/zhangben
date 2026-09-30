@@ -8,7 +8,7 @@ import { EditTransactionSheet } from '../components/EditTransactionSheet';
 import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
 import type { PaymentMethod, Transaction } from '../types';
-import { filterMonth, weekdayLabel } from '../utils/budget';
+import { filterMonth, isBudgetExpense, weekdayLabel } from '../utils/budget';
 import { formatMoney, formatRmb } from '../utils/currency';
 import { normalizeTxDate, parseLocalDate } from '../utils/dates';
 import { PAYMENT_LABEL, PAYMENT_OPTIONS } from '../utils/payment';
@@ -50,7 +50,7 @@ function groupByDay(txs: Transaction[]): { date: string; items: Transaction[]; d
   return order.map((date) => {
     const items = map.get(date)!;
     const daySpend = items
-      .filter((t) => t.type === 'expense' && t.kind !== 'topup')
+      .filter(isBudgetExpense)
       .reduce((a, t) => a + t.amountRmb, 0);
     return { date, items, daySpend };
   });
@@ -74,18 +74,17 @@ export function TransactionList({ store }: Props) {
 
   const list = useMemo(() => {
     let txs = filterMonth(transactions, ym);
-    if (filter === 'expense') txs = txs.filter((t) => t.type === 'expense' && t.kind !== 'topup');
+    if (filter === 'expense') txs = txs.filter(isBudgetExpense);
     if (filter === 'income') txs = txs.filter((t) => t.type === 'income');
     if (payFilter !== 'all') txs = txs.filter((t) => t.paymentMethod === payFilter);
     if (partFilter === 'basic') {
       txs = txs.filter(
-        (t) => t.type === 'expense' && t.kind !== 'topup' && t.bucket === 'basic' && !t.isSpecial,
+        (t) => isBudgetExpense(t) && t.bucket === 'basic' && !t.isSpecial,
       );
     } else if (partFilter === 'special') {
       txs = txs.filter(
         (t) =>
-          t.type === 'expense' &&
-          t.kind !== 'topup' &&
+          isBudgetExpense(t) &&
           (t.bucket === 'special' || !!t.isSpecial),
       );
     } else if (partFilter.startsWith('wallet:')) {
@@ -98,7 +97,7 @@ export function TransactionList({ store }: Props) {
   const dayGroups = useMemo(() => groupByDay(list), [list]);
 
   const sumExpense = list
-    .filter((t) => t.type === 'expense' && t.kind !== 'topup')
+    .filter(isBudgetExpense)
     .reduce((a, t) => a + t.amountRmb, 0);
   const sumIncome = list.filter((t) => t.type === 'income').reduce((a, t) => a + t.amountRmb, 0);
 
@@ -323,10 +322,11 @@ export function TransactionList({ store }: Props) {
               {selected.isSpecial ? ' · 请客特例' : ''}
               {selected.isMonthly ? ' · 月度支出' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出' : ''}
+              {selected.isGroceryPurchase ? ' · 食材入库，做饭时计支出' : ''}
               {selected.paymentMethod !== 'none' ? ` · ${PAYMENT_LABEL[selected.paymentMethod]}` : ''}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 750, margin: '12px 0' }}>
-              {selected.type === 'income' ? '+' : selected.kind === 'topup' ? '' : '-'}
+              {selected.type === 'income' ? '+' : selected.kind === 'topup' || selected.isGroceryPurchase ? '' : '-'}
               {formatRmb(selected.amountRmb)}
             </p>
             {selected.currency !== 'RMB' && (
@@ -337,7 +337,7 @@ export function TransactionList({ store }: Props) {
             {selected.pantryCostRmb != null && selected.pantryCostRmb > 0 && (
               <p className="hint">库存均摊约 {formatRmb(selected.pantryCostRmb)}</p>
             )}
-            {selected.isGroceryPurchase && <p className="hint">买菜购置（已入冰箱）</p>}
+            {selected.isGroceryPurchase && <p className="hint">食材已入库；本笔不计支出，做饭取用时再计入。</p>}
             {selected.note && <p style={{ marginTop: 8 }}>备注：{selected.note}</p>}
             </div>
             <div className="modal-actions">

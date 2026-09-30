@@ -37,7 +37,8 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
 
   const isTopup = tx.kind === 'topup';
   const isIncome = tx.type === 'income';
-  const isExpense = tx.type === 'expense' && !isTopup;
+  const isInventory = !!tx.isGroceryPurchase;
+  const isExpense = tx.type === 'expense' && !isTopup && !tx.isGroceryPurchase;
 
   const expenseCats = useMemo(
     () =>
@@ -55,7 +56,9 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
     [categories],
   );
 
-  const filteredCats = isTopup
+  const filteredCats = tx.isGroceryPurchase
+    ? categories.filter((c) => c.id === 'groceries')
+    : isTopup
     ? categories.filter((c) => c.id === 'octopus_topup')
     : isIncome
       ? incomeCats
@@ -99,8 +102,8 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
     const nextRate = getRate(cur, settings);
 
     updateTransaction(tx.id, {
-      date,
-      amount: n,
+      date: isInventory ? tx.date : date,
+      amount: isInventory ? tx.amount : n,
       currency: cur,
       rate: nextRate,
       categoryId: catId,
@@ -109,7 +112,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
       isSpecial: nextSpecial,
       isMonthly: nextMonthly,
       paymentMethod: pay,
-      walletId: isExpense ? walletId : null,
+      walletId: isInventory ? tx.walletId : isExpense ? walletId : null,
     });
     onClose();
   }
@@ -134,14 +137,14 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
           <h2 className="glass-title">编辑流水</h2>
           <div className="modal-sheet-body">
             <p className="hint" style={{ marginBottom: 10 }}>
-              {isTopup ? '八达通充值' : isIncome ? '收入' : '支出'}
-              {tx.isGroceryPurchase ? ' · 买菜购置' : ''}
+              {isTopup ? '八达通充值' : isInventory ? '食材入库' : isIncome ? '收入' : '支出'}
+              {tx.isGroceryPurchase ? ' · 食材入库（不计支出）' : ''}
               {tx.pantryUseIds && tx.pantryUseIds.length > 0 ? ' · 做饭均摊' : ''}
             </p>
 
             <div className="field">
               <label>日期</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <input type="date" value={date} disabled={isInventory} onChange={(e) => setDate(e.target.value)} />
             </div>
 
             <div className="row-2">
@@ -151,6 +154,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
                   inputMode="decimal"
                   placeholder="0.00"
                   value={amount}
+                  disabled={isInventory}
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </div>
@@ -158,7 +162,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
                 <label>币种</label>
                 <select
                   value={isTopup ? 'HKD' : currency}
-                  disabled={isTopup}
+                  disabled={isTopup || isInventory}
                   onChange={(e) => setCurrency(e.target.value as Currency)}
                 >
                   {orderedCurrenciesForPicker(settings.preferredCurrencies).map((c) => (
@@ -171,7 +175,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
             </div>
             <p className="hint" style={{ marginTop: -6, marginBottom: 10 }}>
               ≈ {formatRmb(previewRmb)}
-              {isTopup ? '（充值不计预算支出）' : ''}
+              {isTopup ? '（充值不计预算支出）' : isInventory ? '（入库不计支出；为避免库存成本不一致，日期与金额暂不可改）' : ''}
             </p>
 
             {!isTopup && (

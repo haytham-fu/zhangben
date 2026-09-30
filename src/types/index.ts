@@ -48,6 +48,15 @@ export type GroceryKind =
   | 'staple'
   | 'fruit'
   | 'seasoning'
+  | 'seafood'
+  | 'dairy'
+  | 'frozen'
+  | 'snack'
+  | 'drink'
+  | 'beans'
+  | 'mushroom'
+  | 'bakery'
+  | 'ready'
   | 'custom';
 
 export interface Category {
@@ -113,6 +122,7 @@ export interface PantryItem {
   notes?: string;
   /** 关联的买菜支出流水 id */
   purchaseTxId?: string | null;
+  walletId?: string | null;
 }
 
 export interface Transaction {

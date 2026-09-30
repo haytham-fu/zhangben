@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Store } from '../hooks/useStore';
 import type { GroceryKind, PaymentMethod } from '../types';
 import type { CapUnit } from '../utils/capacityEstimate';
@@ -56,7 +56,7 @@ function nextKey() {
 function emptyDraft(kind: GroceryKind, name: string): DraftItem {
   const profile = kind === 'seasoning' ? findProductProfile(name) : null;
   const unit = profile ? defaultUnit(profile) : '瓶';
-  let meals = 0;
+  let meals = kind === 'seasoning' ? 0 : 1;
   if (kind === 'seasoning' && profile) {
     const est = estimateFromCapacity(profile, 1, unit);
     if (est) meals = est.count;
@@ -85,6 +85,8 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   const [note, setNote] = useState('');
   const [payOpen, setPayOpen] = useState(false);
   const [backfillOpen, setBackfillOpen] = useState(false);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
   function addKind(kind: GroceryKind, name?: string) {
     const label =
@@ -178,10 +180,13 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   }
 
   function save() {
+    if (savingRef.current) return;
     if (validItems.length === 0) {
       alert('没有可保存的品类');
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
     addGroceryPurchase({
       date,
       paymentMethod,
@@ -201,7 +206,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
 
   return (
     <>
-      <GlassCard title="买菜支出">
+      <GlassCard title="买菜入库">
         <div className="chip-row" style={{ marginBottom: 12 }}>
           <button type="button" className="chip" onClick={onCancel}>
             ← 返回
@@ -474,10 +479,10 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               </div>
             </div>
 
-            <p className="hint">保存后会写入「冰箱/食材」库存，做饭时可勾选扣减。</p>
+            <p className="hint">保存后只增加食材库存；做饭选用食材时再计入支出。</p>
 
-            <button type="button" className="btn btn-primary btn-block" onClick={save}>
-              保存买菜支出
+            <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={saving}>
+              {saving ? '已入库' : '确认食材入库'}
             </button>
             <button type="button" className="btn btn-ghost btn-block section-gap" onClick={() => setStep('items')}>
               返回修改

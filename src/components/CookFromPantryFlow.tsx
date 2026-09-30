@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Store } from '../hooks/useStore';
 import { formatRmb } from '../utils/currency';
 import {
   activePantryItems,
   kindIcon,
+  nextPantryMealCost,
   pantryRemainingValue,
   roundMoney,
 } from '../utils/grocery';
@@ -23,6 +24,8 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
   const [showBuy, setShowBuy] = useState(false);
   const [date, setDate] = useState(todayStr);
   const [note, setNote] = useState('');
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
   const available = useMemo(() => activePantryItems(pantryItems), [pantryItems]);
   const remainValue = useMemo(() => pantryRemainingValue(available), [available]);
@@ -33,7 +36,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
   );
 
   const total = useMemo(
-    () => roundMoney(selectedItems.reduce((s, p) => s + p.costPerMeal, 0)),
+    () => roundMoney(selectedItems.reduce((s, p) => s + nextPantryMealCost(p), 0)),
     [selectedItems],
   );
 
@@ -47,10 +50,13 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
   }
 
   function confirmCook() {
+    if (savingRef.current) return;
     if (selectedItems.length === 0) {
       alert('请先点选本次做饭用到的食材');
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
     cookFromPantry({
       date,
       pantryIds: selectedItems.map((p) => p.id),
@@ -85,10 +91,10 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={selectedItems.length === 0}
+                disabled={selectedItems.length === 0 || saving}
                 onClick={confirmCook}
               >
-                确认记录支出
+                {saving ? '记录成功' : '确认记录支出'}
               </button>
             </div>
           </div>,
@@ -113,10 +119,10 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
           className="btn btn-primary btn-block"
           onClick={() => setShowBuy(true)}
         >
-          添加食材购置支出
+          添加食材
         </button>
         <p className="hint" style={{ marginTop: 8 }}>
-          买菜写入冰箱；点选本次要用的食材。库存估值约 {formatRmb(remainValue)}。
+          买菜先入库，做饭选用时才计入支出。库存估值约 {formatRmb(remainValue)}。
         </p>
 
         <div className="field section-gap">
@@ -126,7 +132,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
 
         <p className="sheet-section-label section-gap">当前可用食材</p>
         {available.length === 0 ? (
-          <p className="hint">冰箱空空的，请先添加食材购置支出</p>
+          <p className="hint">冰箱空空的，请先添加食材</p>
         ) : (
           <ul className="pantry-pick-list">
             {available.map((p) => {
@@ -145,7 +151,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
                       <span>
                         <strong>{p.name}</strong>
                         <span className="hint">
-                          剩 {p.mealsLeft}/{p.mealsTotal} 顿 · 每顿约 {formatRmb(p.costPerMeal)}
+                          剩 {p.mealsLeft}/{p.mealsTotal} 顿 · 本次约 {formatRmb(nextPantryMealCost(p))}
                         </span>
                       </span>
                     </span>

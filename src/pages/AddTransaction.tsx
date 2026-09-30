@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BudgetFxBar } from '../components/BudgetFxBar';
 import { GlassCard } from '../components/GlassCard';
 import { IconAdd, IconPayment } from '../components/CuteIcons';
@@ -59,6 +59,9 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   const [rateNote, setRateNote] = useState('');
   const [resolvedRate, setResolvedRate] = useState(1);
   const [rateLoading, setRateLoading] = useState(false);
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const selected = categories.find((c) => c.id === categoryId);
   const bucket: Bucket = selected?.bucket ?? 'basic';
@@ -144,6 +147,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   }
 
   function startExpenseWizard(prefill?: DeepLinkAddPrefill | null) {
+    setSuccessMessage('');
     setMode('wizard');
     setWizardStep('category');
     setType('expense');
@@ -167,6 +171,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   }, [deepLink]);
 
   async function submitSingle() {
+    if (submittingRef.current) return;
     const n = parseFloat(amount);
     if (Number.isNaN(n) || n <= 0) {
       alert('请输入有效金额');
@@ -174,6 +179,8 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     }
     let cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
     if (!cat) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     const monthly = kind !== 'topup' && type === 'expense' && isMonthly;
     if (monthly) {
       const m = categories.find((c) => c.id === 'membership');
@@ -182,16 +189,9 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     const pay: PaymentMethod =
       kind === 'topup' ? 'octopus' : type === 'expense' ? paymentMethod : 'none';
     const cur: Currency = kind === 'topup' ? 'HKD' : currency;
-    const resolved = await resolveRate(cur, settings);
-    if (resolved.source === 'live' && resolved.fetchedAt) {
-      try {
-        const bundle = await fetchLiveRates();
-        updateSettings(applyLiveBundleToSettings(bundle));
-      } catch {
-        /* ignore */
-      }
-    }
-    addTransaction({
+    try {
+      const resolved = rateLoading ? await resolveRate(cur, settings) : { rate: resolvedRate };
+      addTransaction({
       type: kind === 'topup' ? 'expense' : type,
       kind,
       date,
@@ -205,9 +205,18 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       paymentMethod: pay,
       rate: resolved.rate,
       walletId: kind === 'topup' || type === 'income' ? null : walletId,
-    });
-    resetForm();
-    onDone();
+      });
+      resetForm();
+      setMode('hub');
+      setWizardStep('category');
+      setSuccessMessage('已记入一笔，可继续记账');
+      onDone();
+    } catch {
+      alert('保存失败，请重试');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   async function submitBatch() {
@@ -296,7 +305,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
           setWizardStep('foodWhere');
           setCategoryId('food');
         }}
-        onDone={onDone}
+        onDone={() => {
+          setMode('hub');
+          setSuccessMessage('做饭支出已记录，可继续记账');
+          onDone();
+        }}
       />
     );
   }
@@ -306,6 +319,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       <>
         <BudgetFxBar store={store} />
         <GlassCard title="记账">
+          {successMessage && <p className="save-success" role="status">✓ {successMessage}</p>}
           <div className="add-hero">
             <div className="add-hero-icon" aria-hidden>
               <IconAdd size={56} />
@@ -498,8 +512,8 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 )}
               </div>
 
-              <button type="button" className="btn btn-primary btn-block" onClick={submitSingle}>
-                保存
+              <button type="button" className="btn btn-primary btn-block" onClick={submitSingle} disabled={submitting}>
+                {submitting ? '正在记录…' : '保存'}
               </button>
               <button
                 type="button"
@@ -779,8 +793,8 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />
             </div>
 
-            <button type="button" className="btn btn-primary btn-block" onClick={submitSingle}>
-              保存
+            <button type="button" className="btn btn-primary btn-block" onClick={submitSingle} disabled={submitting}>
+              {submitting ? '正在记录…' : '保存'}
             </button>
           </>
         )}

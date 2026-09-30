@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Store } from '../hooks/useStore';
 import { formatRmb } from '../utils/currency';
-import { activePantryItems, kindIcon, pantryRemainingValue } from '../utils/grocery';
+import { activePantryItems, kindIcon, nextPantryMealCost, pantryRemainingValue } from '../utils/grocery';
 import { GlassCard } from './GlassCard';
 import { PantryBackfillSheet } from './PantryBackfillSheet';
 
@@ -28,7 +28,7 @@ export function PantryPanel({ store }: Props) {
     <>
       <GlassCard title="冰箱库存">
         <p className="hint" style={{ marginTop: 0 }}>
-          记账 → 支出 → 吃饭 → 自己做饭 可购置与扣减。当前库存估值约 {formatRmb(remain)}。
+          买菜入库时不计支出；做饭选用食材时才计入。当前库存估值约 {formatRmb(remain)}。
         </p>
         <button
           type="button"
@@ -49,7 +49,7 @@ export function PantryPanel({ store }: Props) {
                 <div className="pantry-inventory-meta">
                   <strong>{p.name}</strong>
                   <span className="hint">
-                    剩 {p.mealsLeft}/{p.mealsTotal} 顿 · 每顿 {formatRmb(p.costPerMeal)} ·{' '}
+                    剩 {p.mealsLeft}/{p.mealsTotal} 顿 · 下次约 {formatRmb(nextPantryMealCost(p))} ·{' '}
                     {p.boughtDate}
                   </span>
                 </div>

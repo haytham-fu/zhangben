@@ -722,6 +722,7 @@ export function SettingsPage({ store }: Props) {
         >
           导入备份 JSON（整包替换）
         </button>
+        <p className="hint">浏览器与添加到主屏幕后的账本可能使用不同的本机存储。换入口时，请从原入口导出 JSON，再到新入口导入。建议定期把备份保存到手机“文件”；清理浏览器数据或卸载应用可能删除记录。</p>
         <input
           ref={fileRef}
           type="file"

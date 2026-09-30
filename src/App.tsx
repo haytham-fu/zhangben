@@ -14,6 +14,7 @@ import { consumePairCodeFromLocation, fetchSyncPackFromUrl } from './utils/sync'
 export default function App() {
   const store = useStore();
   const [tab, setTab] = useState<TabId>('home');
+  const [standalone, setStandalone] = useState(false);
 
   const [deepLink, setDeepLink] = useState<DeepLinkAddPrefill | null>(null);
   const appearance = useThemeAppearance(
@@ -21,6 +22,13 @@ export default function App() {
     store.settings.bgMotion ?? 'dynamic',
   );
   const autoPullDone = useRef(false);
+
+  useEffect(() => {
+    setStandalone(
+      window.matchMedia('(display-mode: standalone)').matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone),
+    );
+  }, []);
 
   useEffect(() => {
     const pair = consumePairCodeFromLocation();
@@ -65,10 +73,9 @@ export default function App() {
 
   const budgetsUnset =
     (store.settings.basicBudget ?? 0) <= 0 && (store.settings.specialBudget ?? 0) <= 0;
-  const remain = store.monthStats.totalRemain;
   const subtitle = budgetsUnset
     ? '本地记账 · 预算未设置'
-    : `本地记账 · 剩余 ¥${remain.toFixed(2)}`;
+    : `本地记账 · ${store.settings.basicBudget} + ${store.settings.specialBudget}`;
 
   // Keep pages mounted so derived budget/calendar figures stay live when adding txs
   // (hidden tabs still receive store updates; only the active page is shown).
@@ -80,6 +87,20 @@ export default function App() {
           <p className="subtitle">{subtitle}</p>
         </div>
       </header>
+
+      {store.storageError && (
+        <div className="migration-banner storage-warning" role="alert">
+          <span>本机保存失败。请立即导出备份，暂时不要关闭页面。</span>
+          <button type="button" onClick={() => setTab('settings')}>导出备份</button>
+        </div>
+      )}
+
+      {standalone && store.transactions.length === 0 && store.pantryItems.length === 0 && tab !== 'settings' && (
+        <div className="migration-banner" role="status">
+          <span>主屏幕版暂无记录。浏览器中的记录不会自动同步到这里。</span>
+          <button type="button" onClick={() => setTab('settings')}>导入备份</button>
+        </div>
+      )}
 
       <div className={`page-view ${tab === 'home' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'home'}>
         <Dashboard
@@ -97,7 +118,7 @@ export default function App() {
       <div className={`page-view ${tab === 'add' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'add'}>
         <AddTransaction
           store={store}
-          onDone={() => setTab('home')}
+          onDone={() => setTab('add')}
           deepLink={deepLink}
           onDeepLinkConsumed={() => setDeepLink(null)}
         />

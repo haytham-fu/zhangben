@@ -252,6 +252,43 @@ a {
   color: transparent;
 }
 
+.migration-banner,
+.save-success {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 18px;
+  background: rgba(235, 246, 255, 0.82);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(18px);
+  line-height: 1.45;
+}
+
+.migration-banner button {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: var(--blue-500);
+  color: white;
+  font: inherit;
+  font-weight: 700;
+}
+
+.storage-warning {
+  border-color: rgba(224, 122, 106, 0.5);
+  background: rgba(255, 235, 231, 0.9);
+}
+
+.save-success {
+  color: #155e55;
+  font-weight: 700;
+}
+
 .subtitle {
   margin: 0;
   font-size: 0.78rem;
@@ -646,7 +683,7 @@ a {
 
 .row-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2631,6 +2668,7 @@ html[data-palette="lilac"] {
 }
 
 .grocery-draft-card {
+  min-width: 0;
   padding: 12px 14px;
   border-radius: var(--radius-soft);
   border: 1px solid rgba(255, 255, 255, 0.55);
@@ -2648,6 +2686,11 @@ html[data-palette="lilac"] {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.grocery-draft-head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .grocery-summary-pill {
@@ -2810,6 +2853,23 @@ html[data-palette="lilac"] {
 
 .cook-sticky-total strong {
   font-size: 1.15rem;
+}
+
+@media (max-width: 360px) {
+  .cook-sticky-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cook-sticky-total {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .cook-sticky-inner .btn { width: 100%; }
+  .cook-sticky-spacer { height: 140px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

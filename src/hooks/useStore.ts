@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type {
   AppState,
@@ -16,10 +16,10 @@ import type {
   WalletTransferSource,
 } from '../types';
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
-import { costPerMeal, roundMoney } from '../utils/grocery';
+import { costPerMeal, nextPantryMealCost, roundMoney } from '../utils/grocery';
 import { loadState, saveState } from '../utils/storage';
 import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
-import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount } from '../utils/budget';
+import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount, isBudgetExpense } from '../utils/budget';
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
 import { mergeProfileSettings, mergeProfileTransactions, type LedgerProfilePack } from '../utils/profile';
 import { mergeSyncIntoLocal, type SyncImportMode } from '../utils/sync';
@@ -78,9 +78,15 @@ function mapWalletsRefund(wallets: Wallet[], walletId: string | null | undefined
 
 export function useStore() {
   const [state, setState] = useState<AppState>(() => loadState());
+  const [storageError, setStorageError] = useState(false);
 
-  useEffect(() => {
-    saveState(state);
+  useLayoutEffect(() => {
+    try {
+      saveState(state);
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
   }, [state]);
 
   // Always keep 小钱猪 present
@@ -143,7 +149,7 @@ export function useStore() {
         pantryCostRmb: input.pantryCostRmb,
       };
       let wallets = s.wallets;
-      if (tx.type === 'expense' && tx.kind !== 'topup' && tx.walletId) {
+      if (isBudgetExpense(tx) && tx.walletId) {
         wallets = mapWalletsSpend(wallets, tx.walletId, tx.amountRmb);
       }
       return { ...s, transactions: [tx, ...s.transactions], wallets };
@@ -164,10 +170,8 @@ export function useStore() {
         nextTx.amountRmb = toRmbWithRate(amount, rate);
       }
       let wallets = s.wallets;
-      const wasSpend =
-        prev.type === 'expense' && prev.kind !== 'topup' && prev.walletId;
-      const isSpend =
-        nextTx.type === 'expense' && nextTx.kind !== 'topup' && nextTx.walletId;
+      const wasSpend = isBudgetExpense(prev) && prev.walletId;
+      const isSpend = isBudgetExpense(nextTx) && nextTx.walletId;
       if (wasSpend) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);
       }
@@ -185,14 +189,22 @@ export function useStore() {
   const deleteTransaction = useCallback((id: string) => {
     setState((s) => {
       const prev = s.transactions.find((t) => t.id === id);
+      if (!prev) return s;
       let wallets = s.wallets;
-      if (prev && prev.type === 'expense' && prev.kind !== 'topup' && prev.walletId) {
+      if (isBudgetExpense(prev) && prev.walletId) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);
       }
+      const usedIds = new Set(prev.pantryUseIds ?? []);
+      const pantryItems = usedIds.size === 0 ? s.pantryItems : s.pantryItems.map((item) =>
+        usedIds.has(item.id)
+          ? { ...item, mealsLeft: Math.min(item.mealsTotal, Math.round((item.mealsLeft + 1) * 10) / 10) }
+          : item,
+      );
       return {
         ...s,
         transactions: s.transactions.filter((t) => t.id !== id),
         wallets,
+        pantryItems,
       };
     });
   }, []);
@@ -382,7 +394,7 @@ export function useStore() {
     return result;
   }, []);
 
-  /** 买菜支出：记一笔流水 + 写入库存 */
+  /** 买菜只入库：保留购置凭据，不计预算或小荷包支出。 */
   const addGroceryPurchase = useCallback(
     (opts: {
       date: string;
@@ -410,6 +422,7 @@ export function useStore() {
             boughtDate: normalizeTxDate(opts.date),
             notes: it.notes,
             purchaseTxId: txId,
+            walletId: opts.walletId ?? null,
           };
         });
         const total = roundMoney(pantry.reduce((sum, p) => sum + p.costRmb, 0));
@@ -434,15 +447,10 @@ export function useStore() {
           isGroceryPurchase: true,
           groceryLotIds: lotIds,
         };
-        let wallets = s.wallets;
-        if (tx.walletId) {
-          wallets = mapWalletsSpend(wallets, tx.walletId, tx.amountRmb);
-        }
         return {
           ...s,
           transactions: [tx, ...s.transactions],
           pantryItems: [...pantry, ...s.pantryItems],
-          wallets,
         };
       });
     },
@@ -463,7 +471,7 @@ export function useStore() {
       setState((s) => {
         const selected = s.pantryItems.filter((p) => opts.pantryIds.includes(p.id) && p.mealsLeft > 0);
         if (selected.length === 0 && !(opts.extraRmb && opts.extraRmb > 0)) return s;
-        const pantryCost = roundMoney(selected.reduce((sum, p) => sum + p.costPerMeal, 0));
+        const pantryCost = roundMoney(selected.reduce((sum, p) => sum + nextPantryMealCost(p), 0));
         const extra = roundMoney(Math.max(0, opts.extraRmb ?? 0));
         const total = roundMoney(pantryCost + extra);
         const names = selected.map((p) => p.name).join('、');
@@ -473,6 +481,8 @@ export function useStore() {
           const left = Math.round(Math.max(0, p.mealsLeft - 1) * 10) / 10;
           return { ...p, mealsLeft: left };
         });
+        const sourceWallet = selected.length > 0 && selected.every((p) => p.walletId === selected[0].walletId)
+          ? selected[0].walletId : null;
         const tx: Transaction = {
           id: uuid(),
           type: 'expense',
@@ -488,7 +498,7 @@ export function useStore() {
           isSpecial: false,
           isMonthly: false,
           paymentMethod: opts.paymentMethod ?? 'other',
-          walletId: opts.walletId ?? null,
+          walletId: opts.walletId ?? sourceWallet ?? null,
           createdAt: new Date().toISOString(),
           pantryUseIds: selected.map((p) => p.id),
           pantryCostRmb: pantryCost,
@@ -651,6 +661,7 @@ export function useStore() {
 
   return {
     state,
+    storageError,
     settings: state.settings,
     transactions: state.transactions,
     categories: state.categories,

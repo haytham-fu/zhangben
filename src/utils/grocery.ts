@@ -21,7 +21,16 @@ export const GROCERY_KIND_OPTIONS: GroceryKindOption[] = [
   { kind: 'egg', label: '蛋', icon: '🥚' },
   { kind: 'staple', label: '主食', icon: '🍚' },
   { kind: 'fruit', label: '水果', icon: '🍎' },
+  { kind: 'seafood', label: '海鲜', icon: '🐟' },
+  { kind: 'dairy', label: '奶制品', icon: '🥛' },
+  { kind: 'frozen', label: '冷冻食品', icon: '🧊' },
+  { kind: 'snack', label: '零食', icon: '🍪' },
+  { kind: 'drink', label: '饮料', icon: '🧃' },
   { kind: 'seasoning', label: '调料', icon: '🧂' },
+  { kind: 'beans', label: '豆制品', icon: '🫘' },
+  { kind: 'mushroom', label: '菌菇', icon: '🍄' },
+  { kind: 'bakery', label: '面包糕点', icon: '🥐' },
+  { kind: 'ready', label: '即食食品', icon: '🥡' },
 ];
 
 /** Quick chips: name only; meals come from capacity estimate */
@@ -92,6 +101,14 @@ export function costPerMeal(costRmb: number, meals: number): number {
   return roundMoney(costRmb / meals);
 }
 
+/** 最后一顿结清分摊的分位误差，整批食材只计一次。 */
+export function nextPantryMealCost(item: PantryItem): number {
+  if (item.mealsLeft <= 0) return 0;
+  const used = Math.max(0, item.mealsTotal - item.mealsLeft);
+  const remaining = roundMoney(Math.max(0, item.costRmb - used * item.costPerMeal));
+  return item.mealsLeft <= 1 ? remaining : Math.min(item.costPerMeal, remaining);
+}
+
 /** 每顿均价：各品（金额/顿数）相加 */
 export function purchaseCostPerMeal(
   items: { costRmb: number; meals: number }[],
@@ -116,6 +133,6 @@ export function activePantryItems(items: PantryItem[]): PantryItem[] {
 
 export function pantryRemainingValue(items: PantryItem[]): number {
   return roundMoney(
-    items.reduce((s, p) => s + p.costPerMeal * Math.max(0, p.mealsLeft), 0),
+    items.reduce((s, p) => s + Math.max(0, p.costRmb - (p.mealsTotal - p.mealsLeft) * p.costPerMeal), 0),
   );
 }

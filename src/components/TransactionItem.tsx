@@ -11,8 +11,9 @@ interface Props {
 
 export function TransactionItem({ tx, category, wallet, onClick }: Props) {
   const isTopup = tx.kind === 'topup';
-  const amountClass = isTopup ? 'topup' : tx.type === 'income' ? 'income' : 'expense';
-  const sign = isTopup ? '' : tx.type === 'income' ? '+' : '-';
+  const isInventory = !!tx.isGroceryPurchase;
+  const amountClass = isTopup || isInventory ? 'topup' : tx.type === 'income' ? 'income' : 'expense';
+  const sign = isTopup || isInventory ? '' : tx.type === 'income' ? '+' : '-';
   const title = category?.name ?? '未分类';
   const payLabel = tx.paymentMethod !== 'none' ? PAYMENT_LABEL[tx.paymentMethod] : '';
 
@@ -26,6 +27,7 @@ export function TransactionItem({ tx, category, wallet, onClick }: Props) {
             {tx.isSpecial && <span className="badge badge-special">请客</span>}
             {tx.isMonthly && <span className="badge badge-monthly">月度</span>}
             {isTopup && <span className="badge badge-topup">充值·不计支出</span>}
+            {isInventory && <span className="badge badge-topup">食材入库·不计支出</span>}
             {payLabel && !isTopup && (
               <span className={`badge ${paymentBadgeClass(tx.paymentMethod)}`}>{payLabel}</span>
             )}

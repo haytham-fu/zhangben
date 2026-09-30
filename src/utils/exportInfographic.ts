@@ -2,6 +2,7 @@ import type { AppState, Category, Settings, Transaction } from '../types';
 import {
   budgetStatus,
   filterMonth,
+  isBudgetExpense,
   monthBasicUsed,
   monthSpecialUsed,
   type BudgetStatus,
@@ -95,7 +96,7 @@ function monthExpense(txs: Transaction[]): number {
   return (
     Math.round(
       txs
-        .filter((t) => t.type === 'expense' && t.kind !== 'topup')
+        .filter(isBudgetExpense)
         .reduce((a, t) => a + t.amountRmb, 0) * 100,
     ) / 100
   );
@@ -122,7 +123,7 @@ export async function renderLedgerInfographic(opts: InfographicOptions): Promise
   const catMap = new Map(state.categories.map((c: Category) => [c.id, c]));
   const catSums = new Map<string, number>();
   for (const t of monthTxs) {
-    if (t.type !== 'expense' || t.kind === 'topup') continue;
+    if (!isBudgetExpense(t)) continue;
     if (!includeOpts.includeSpecial && t.isSpecial) continue;
     catSums.set(t.categoryId, (catSums.get(t.categoryId) ?? 0) + t.amountRmb);
   }
