@@ -220,6 +220,8 @@ export interface Settings {
    * Prevents double settlement for the same month.
    */
   settledMonths?: string[];
+  /** Months when an active budget was opened, including months with no entries. */
+  activeBudgetMonths?: string[];
   /**
    * Prior-period summary for the current month (no daily line items).
    * Budget "used" = opening + txs in this ym.

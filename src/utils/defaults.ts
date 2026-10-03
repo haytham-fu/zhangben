@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themePalette: 'sky',
   bgMotion: 'dynamic',
   settledMonths: [],
+  activeBudgetMonths: [],
   /** No personal prior-period summary on fresh install */
   monthOpening: null,
   deviceId: '',

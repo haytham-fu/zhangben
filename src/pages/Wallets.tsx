@@ -52,7 +52,6 @@ export function WalletsPage({ store }: Props) {
     updateWallet,
     removeWallet,
     transferWallet,
-    settleMonth,
   } = store;
 
   const [edit, setEdit] = useState<EditDraft | null>(null);
@@ -77,6 +76,13 @@ export function WalletsPage({ store }: Props) {
   const canTransfer = transferableRemain(settings, wallets, transactions, currentYm);
   const settled = isMonthSettled(settings, currentYm);
   const settlePreview = settlementDelta(settings, wallets, transactions, currentYm);
+  const lastSettledYm = [...(settings.settledMonths ?? [])]
+    .filter((ym) => ym < currentYm)
+    .sort()
+    .at(-1);
+  const lastSettlement = pig?.transfers?.find(
+    (transfer) => transfer.source === 'settle' && transfer.ym === lastSettledYm,
+  );
 
   function openEdit(w: Wallet) {
     setEdit({
@@ -152,18 +158,6 @@ export function WalletsPage({ store }: Props) {
     setTransfer(null);
   }
 
-  function doSettle() {
-    const tip =
-      settlePreview > 0
-        ? `将把本月盈余 ${formatRmb(settlePreview)} 转入小钱猪。确认结算？`
-        : settlePreview < 0
-          ? `本月超支 ${formatRmb(Math.abs(settlePreview))}，将从小钱猪扣除（余额可为负，表示欠小钱猪）。确认结算？`
-          : '本月刚好花完，将标记为已结算。确认？';
-    if (!confirm(tip)) return;
-    const res = settleMonth(currentYm);
-    alert(res.message);
-  }
-
   return (
     <div className="wallets-page">
       <GlassCard
@@ -207,18 +201,26 @@ export function WalletsPage({ store }: Props) {
               </p>
             </div>
           </div>
+          {lastSettledYm && (
+            <div className="pig-settlement-note" role="status">
+              <strong>{lastSettledYm.replace('-', '年')}月已结算</strong>
+              <span>
+                {lastSettlement
+                  ? lastSettlement.direction === 'in'
+                    ? `盈余 ${formatRmb(lastSettlement.amount)} 已转入`
+                    : `超支 ${formatRmb(lastSettlement.amount)} 已扣除`
+                  : '当月刚好用完'}
+              </span>
+            </div>
+          )}
           <div className="wallet-card-actions" style={{ marginTop: 10, justifyContent: 'stretch' }}>
             {settled ? (
               <span className="hint">本月（{currentYm}）已结算</span>
             ) : (
-              <button type="button" className="btn btn-primary btn-block" onClick={doSettle}>
-                月末结算
-                {settlePreview !== 0
-                  ? settlePreview > 0
-                    ? `（盈余 ${formatRmb(settlePreview)}）`
-                    : `（超支 ${formatRmb(Math.abs(settlePreview))}）`
-                  : '（刚好）'}
-              </button>
+              <span className="hint">
+                本月预计{settlePreview >= 0 ? '盈余' : '超支'} {formatRmb(Math.abs(settlePreview))}
+                {' · '}下月首次打开时自动结算
+              </span>
             )}
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(pig)}>
               编辑颜色/目标

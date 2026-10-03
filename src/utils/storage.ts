@@ -227,6 +227,9 @@ export function normalizeSettings(raw: unknown): Settings {
     settledMonths: Array.isArray(partial.settledMonths)
       ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
       : [],
+    activeBudgetMonths: Array.isArray(partial.activeBudgetMonths)
+      ? partial.activeBudgetMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
+      : [],
     monthOpening: monthOpening ?? null,
     deviceId: typeof partial.deviceId === 'string' ? partial.deviceId.trim().slice(0, 80) : '',
     deviceName: normalizeDeviceName(partial.deviceName, DEFAULT_SETTINGS.deviceName ?? '我的设备'),

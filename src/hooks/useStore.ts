@@ -29,10 +29,9 @@ import {
   decreaseWalletForSpend,
   ensurePigWallet,
   increaseWalletForRefund,
-  isMonthSettled,
   isPigWallet,
   PIG_WALLET_ID,
-  settlementDelta,
+  settleClosedMonths,
   sourceAvail,
 } from '../utils/wallets';
 
@@ -104,6 +103,18 @@ export function useStore() {
       return { ...s, wallets: next };
     });
   }, []);
+
+  // Settle recorded months after the calendar rolls over, including months
+  // restored from a backup. The helper is idempotent, even in StrictMode.
+  useEffect(() => {
+    const settle = () => setState((s) => settleClosedMonths(s, localMonthKey()));
+    settle();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') settle();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [state.transactions, state.settings.basicBudget, state.settings.specialBudget, state.settings.monthOpening]);
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
     setState((s) => ({ ...s, settings: { ...s.settings, ...partial } }));
@@ -330,69 +341,6 @@ export function useStore() {
     },
     [],
   );
-
-  /**
-   * 月末结算：本月可转余额（盈余）→ 小钱猪；超支（负可转）从小钱猪扣除（可为负=欠小钱猪）。
-   */
-  const settleMonth = useCallback((ym: string): { ok: boolean; message: string; delta?: number } => {
-    let result = { ok: false, message: '结算失败', delta: 0 };
-    setState((s) => {
-      if (isMonthSettled(s.settings, ym)) {
-        result = { ok: false, message: `${ym} 已结算过`, delta: 0 };
-        return s;
-      }
-      const wallets = ensurePigWallet(s.wallets);
-      const delta = settlementDelta(s.settings, wallets, s.transactions, ym);
-      const pigIdx = wallets.findIndex((w) => isPigWallet(w));
-      if (pigIdx < 0) {
-        result = { ok: false, message: '未找到小钱猪', delta: 0 };
-        return s;
-      }
-      const pig = wallets[pigIdx];
-      let nextPig = pig;
-      if (delta > 0) {
-        nextPig = applyTransferToWallet(
-          pig,
-          'in',
-          delta,
-          'settle',
-          `${ym} 月末盈余转入`,
-          ym,
-        );
-      } else if (delta < 0) {
-        nextPig = applyTransferToWallet(
-          pig,
-          'out',
-          Math.abs(delta),
-          'settle',
-          `${ym} 月末超支扣除`,
-          ym,
-        );
-      } else {
-        // zero: still mark settled, no balance change
-        nextPig = pig;
-      }
-      const nextWallets = [...wallets];
-      nextWallets[pigIdx] = nextPig;
-      const settled = [...(s.settings.settledMonths ?? []), ym];
-      result = {
-        ok: true,
-        message:
-          delta > 0
-            ? `已将盈余 ¥${delta.toFixed(2)} 转入小钱猪`
-            : delta < 0
-              ? `已从超支 ¥${Math.abs(delta).toFixed(2)} 扣除（余额可为负表示欠小钱猪）`
-              : '本月刚好花完，已标记结算',
-        delta,
-      };
-      return {
-        ...s,
-        wallets: nextWallets,
-        settings: { ...s.settings, settledMonths: settled },
-      };
-    });
-    return result;
-  }, []);
 
   /** 买菜只入库：保留购置凭据，不计预算或小荷包支出。 */
   const addGroceryPurchase = useCallback(
@@ -681,7 +629,6 @@ export function useStore() {
     updateWallet,
     removeWallet,
     transferWallet,
-    settleMonth,
     addGroceryPurchase,
     cookFromPantry,
     removePantryItem,

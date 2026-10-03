@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type {
+  AppState,
   Bucket,
   Settings,
   Transaction,
@@ -10,6 +11,7 @@ import type {
 } from '../types';
 import { filterMonth, isBudgetExpense, monthBasicUsed, monthSpecialUsed } from './budget';
 import { roundMoney } from './grocery';
+import { localMonthKey, normalizeTxDate } from './dates';
 
 export const WALLET_COLORS = [
   '#3B82F6',
@@ -371,6 +373,91 @@ export function settledMonthsOf(settings: Settings): string[] {
 
 export function isMonthSettled(settings: Settings, ym: string): boolean {
   return settledMonthsOf(settings).includes(ym);
+}
+
+/** Reconstruct user jars at the close of a past month, excluding later activity. */
+function userWalletsAtMonthEnd(wallets: Wallet[], txs: Transaction[], ym: string): Wallet[] {
+  return wallets.map((wallet) => {
+    if (isPigWallet(wallet)) return wallet;
+    if (wallet.createdAt && !Number.isNaN(Date.parse(wallet.createdAt)) &&
+        localMonthKey(new Date(wallet.createdAt)) > ym) {
+      return { ...wallet, balance: 0 };
+    }
+    let balance = wallet.balance;
+    for (const transfer of wallet.transfers ?? []) {
+      const transferMonth = Number.isNaN(Date.parse(transfer.createdAt))
+        ? transfer.ym
+        : localMonthKey(new Date(transfer.createdAt));
+      if (transferMonth && transferMonth > ym) {
+        balance += transfer.direction === 'in' ? -transfer.amount : transfer.amount;
+      }
+    }
+    for (const tx of txs) {
+      if (tx.walletId === wallet.id && normalizeTxDate(tx.date).slice(0, 7) > ym && isBudgetExpense(tx)) {
+        balance += tx.amountRmb;
+      }
+    }
+    return { ...wallet, balance: roundMoney(Math.max(0, balance)) };
+  });
+}
+
+/** Close recorded months once the calendar has moved on. Safe to run on every open. */
+export function settleClosedMonths(state: AppState, currentYm: string): AppState {
+  if (state.settings.basicBudget + state.settings.specialBudget <= 0) return state;
+  const activeMonths = state.settings.activeBudgetMonths ?? [];
+  const tracked = activeMonths.includes(currentYm)
+    ? state
+    : {
+        ...state,
+        settings: {
+          ...state.settings,
+          activeBudgetMonths: [...activeMonths, currentYm],
+        },
+      };
+  const months = new Set(
+    tracked.transactions
+      .map((tx) => normalizeTxDate(tx.date).slice(0, 7))
+      .filter((ym) => ym < currentYm),
+  );
+  for (const ym of activeMonths) {
+    if (ym < currentYm) months.add(ym);
+  }
+  const opening = tracked.settings.monthOpening?.ym;
+  if (opening && opening < currentYm) months.add(opening);
+  if (months.size === 0) return tracked;
+
+  let wallets = ensurePigWallet(tracked.wallets);
+  let settledMonths = settledMonthsOf(tracked.settings);
+  let changed = false;
+  for (const ym of [...months].sort()) {
+    const pigIdx = wallets.findIndex(isPigWallet);
+    const pig = wallets[pigIdx];
+    const alreadyTransferred = pig.transfers?.some((t) => t.source === 'settle' && t.ym === ym);
+    if (settledMonths.includes(ym) || alreadyTransferred) {
+      if (alreadyTransferred && !settledMonths.includes(ym)) {
+        settledMonths = [...settledMonths, ym];
+        changed = true;
+      }
+      continue;
+    }
+    const historicWallets = userWalletsAtMonthEnd(wallets, tracked.transactions, ym);
+    const delta = settlementDelta(tracked.settings, historicWallets, tracked.transactions, ym);
+    if (delta !== 0) {
+      const next = [...wallets];
+      next[pigIdx] = applyTransferToWallet(
+        pig,
+        delta > 0 ? 'in' : 'out',
+        Math.abs(delta),
+        'settle',
+        `${ym} 月末${delta > 0 ? '盈余转入' : '超支扣除'}`,
+        ym,
+      );
+      wallets = next;
+    }
+    settledMonths = [...settledMonths, ym];
+    changed = true;
+  }
+  return changed ? { ...tracked, wallets, settings: { ...tracked.settings, settledMonths } } : tracked;
 }
 
 /**
