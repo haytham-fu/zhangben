@@ -1,7 +1,7 @@
 import type { PaymentMethod } from '../types';
 
 export const PAYMENT_OPTIONS: { id: PaymentMethod; label: string }[] = [
-  { id: 'octopus', label: '八达通' },
+  { id: 'octopus', label: '八达通消费' },
   { id: 'wechat', label: '微信支付' },
   { id: 'alipay', label: '支付宝' },
   { id: 'bank', label: '银行卡' },

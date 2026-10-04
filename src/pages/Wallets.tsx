@@ -80,9 +80,9 @@ export function WalletsPage({ store }: Props) {
     .filter((ym) => ym < currentYm)
     .sort()
     .at(-1);
-  const lastSettlement = pig?.transfers?.find(
-    (transfer) => transfer.source === 'settle' && transfer.ym === lastSettledYm,
-  );
+  const lastSettlementAmount = (pig?.transfers ?? [])
+    .filter((transfer) => transfer.source === 'settle' && transfer.ym === lastSettledYm)
+    .reduce((sum, transfer) => sum + (transfer.direction === 'in' ? transfer.amount : -transfer.amount), 0);
 
   function openEdit(w: Wallet) {
     setEdit({
@@ -205,11 +205,11 @@ export function WalletsPage({ store }: Props) {
             <div className="pig-settlement-note" role="status">
               <strong>{lastSettledYm.replace('-', '年')}月已结算</strong>
               <span>
-                {lastSettlement
-                  ? lastSettlement.direction === 'in'
-                    ? `盈余 ${formatRmb(lastSettlement.amount)} 已转入`
-                    : `超支 ${formatRmb(lastSettlement.amount)} 已扣除`
-                  : '当月刚好用完'}
+                {lastSettlementAmount > 0
+                  ? `盈余 ${formatRmb(lastSettlementAmount)} 已转入`
+                  : lastSettlementAmount < 0
+                    ? `超支 ${formatRmb(Math.abs(lastSettlementAmount))} 已扣除`
+                    : '当月刚好用完'}
               </span>
             </div>
           )}

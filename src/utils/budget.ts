@@ -1,4 +1,6 @@
 import {
+  addDays,
+  differenceInCalendarDays,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -55,6 +57,49 @@ export function filterMonth(txs: Transaction[], ym: string): Transaction[] {
   return txs.filter((t) => normalizeTxDate(t.date).startsWith(ym));
 }
 
+export function isSpreadAc(tx: Transaction): boolean {
+  return tx.categoryId === 'ac' && isBudgetExpense(tx) &&
+    Number.isInteger(tx.spreadDays) && (tx.spreadDays ?? 0) > 1 && (tx.spreadDays ?? 0) <= 365;
+}
+
+/** Exact cent allocation: e.g. ¥100 / 3 = 33.34 + 33.33 + 33.33. */
+export function expenseOnDate(tx: Transaction, dateStr: string): number {
+  if (!isBudgetExpense(tx)) return 0;
+  const date = normalizeTxDate(dateStr);
+  if (!isSpreadAc(tx)) return normalizeTxDate(tx.date) === date ? tx.amountRmb : 0;
+  const offset = differenceInCalendarDays(parseLocalDate(date), parseLocalDate(tx.date));
+  const days = tx.spreadDays!;
+  if (offset < 0 || offset >= days) return 0;
+  const cents = Math.round(tx.amountRmb * 100);
+  const base = Math.floor(cents / days);
+  return (base + (offset < cents % days ? 1 : 0)) / 100;
+}
+
+export function expenseInMonth(tx: Transaction, ym: string): number {
+  if (!isBudgetExpense(tx)) return 0;
+  if (!isSpreadAc(tx)) return normalizeTxDate(tx.date).startsWith(ym) ? tx.amountRmb : 0;
+  const start = parseLocalDate(tx.date);
+  let cents = 0;
+  for (let i = 0; i < tx.spreadDays!; i++) {
+    const day = format(addDays(start, i), 'yyyy-MM-dd');
+    if (day.startsWith(ym)) cents += Math.round(expenseOnDate(tx, day) * 100);
+  }
+  return cents / 100;
+}
+
+function netSpendInMonth(
+  txs: Transaction[], ym: string, bucket: 'basic' | 'special', opts: { includeSpecial: boolean },
+): number {
+  let cents = 0;
+  for (const tx of txs) {
+    if (tx.bucket !== bucket || (!opts.includeSpecial && tx.isSpecial)) continue;
+    if (isBudgetIncome(tx)) {
+      if (normalizeTxDate(tx.date).startsWith(ym)) cents -= Math.round(tx.amountRmb * 100);
+    } else cents += Math.round(expenseInMonth(tx, ym) * 100);
+  }
+  return cents / 100;
+}
+
 export function netBasicSpend(
   txs: Transaction[],
   opts: { includeSpecial: boolean },
@@ -101,7 +146,7 @@ export function monthBasicUsed(
   ym: string,
   opts: { includeSpecial: boolean },
 ): number {
-  const fromTxs = netBasicSpend(filterMonth(txs, ym), opts);
+  const fromTxs = netSpendInMonth(txs, ym, 'basic', opts);
   const open = monthOpeningUsed(settings, ym).basicUsed;
   return Math.round((fromTxs + open) * 100) / 100;
 }
@@ -113,7 +158,7 @@ export function monthSpecialUsed(
   ym: string,
   opts: { includeSpecial: boolean },
 ): number {
-  const fromTxs = specialSpend(filterMonth(txs, ym), opts);
+  const fromTxs = netSpendInMonth(txs, ym, 'special', opts);
   const open = monthOpeningUsed(settings, ym).specialUsed;
   return Math.round((fromTxs + open) * 100) / 100;
 }
@@ -124,10 +169,13 @@ export function dayNetBasic(
   opts: { includeSpecial: boolean },
 ): number {
   const day = normalizeTxDate(dateStr);
-  return netBasicSpend(
-    txs.filter((t) => normalizeTxDate(t.date) === day),
-    opts,
-  );
+  let cents = 0;
+  for (const tx of txs) {
+    if (tx.bucket !== 'basic' || (!opts.includeSpecial && tx.isSpecial)) continue;
+    if (isBudgetIncome(tx) && normalizeTxDate(tx.date) === day) cents -= Math.round(tx.amountRmb * 100);
+    else cents += Math.round(expenseOnDate(tx, day) * 100);
+  }
+  return cents / 100;
 }
 
 /** All budget-counting net spend for a calendar day (basic + special). */
@@ -137,10 +185,13 @@ export function dayNetAll(
   opts: { includeSpecial: boolean },
 ): number {
   const day = normalizeTxDate(dateStr);
-  const dayTxs = txs.filter((t) => normalizeTxDate(t.date) === day);
-  const basic = netBasicSpend(dayTxs, opts);
-  const special = specialSpend(dayTxs, opts);
-  return Math.round((basic + special) * 100) / 100;
+  let cents = 0;
+  for (const tx of txs) {
+    if (!opts.includeSpecial && tx.isSpecial) continue;
+    if (isBudgetIncome(tx) && normalizeTxDate(tx.date) === day) cents -= Math.round(tx.amountRmb * 100);
+    else cents += Math.round(expenseOnDate(tx, day) * 100);
+  }
+  return cents / 100;
 }
 
 export function dayTxCount(txs: Transaction[], dateStr: string): number {

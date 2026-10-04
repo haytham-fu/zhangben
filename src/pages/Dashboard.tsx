@@ -10,7 +10,7 @@ import {
   budgetStatus,
   buildAdvice,
   dailyStatus,
-  filterMonth,
+  expenseInMonth,
   getSatMode,
   isBudgetExpense,
   weekdayLabel,
@@ -31,7 +31,6 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
     ? Object.values(settings.dailyPlan).some((v) => typeof v === 'number' && v > 0)
     : false);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
-  const monthTxs = filterMonth(transactions, currentYm);
   const { basicUsed, specialUsed, totalBudget, totalUsed, totalRemain, todayUsed, todayPlan } = monthStats;
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
@@ -53,10 +52,11 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
 
   const catSummary = (() => {
     const map = new Map<string, number>();
-    for (const t of monthTxs) {
+    for (const t of transactions) {
       if (!isBudgetExpense(t)) continue;
       if (!opts.includeSpecial && t.isSpecial) continue;
-      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amountRmb);
+      const amount = expenseInMonth(t, currentYm);
+      if (amount > 0) map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + amount);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   })();

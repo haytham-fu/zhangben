@@ -18,9 +18,11 @@ import type { Store } from '../hooks/useStore';
 import {
   dailyStatus,
   dayNetBasic,
+  expenseOnDate,
   dayTxCount,
   getDailyPlanAmount,
   getSatMode,
+  isSpreadAc,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
@@ -90,6 +92,12 @@ export function CalendarPage({ store }: Props) {
     if (!selected) return [];
     return transactions.filter((t) => normalizeTxDate(t.date) === selected);
   }, [transactions, selected]);
+  const selectedAcAllocations = selected
+    ? transactions
+        .filter(isSpreadAc)
+        .map((tx) => ({ tx, amount: expenseOnDate(tx, selected) }))
+        .filter(({ amount }) => amount > 0)
+    : [];
 
   const isSelectedSat = selected ? getDay(parseLocalDate(selected)) === 6 : false;
   const satMode = selected ? getSatMode(selected, settings) : settings.defaultSatMode;
@@ -274,9 +282,19 @@ export function CalendarPage({ store }: Props) {
             </div>
           )}
 
+          {selectedAcAllocations.length > 0 && (
+            <div className="grocery-summary-pill section-gap">
+              <strong>当日空调分摊</strong>
+              {selectedAcAllocations.map(({ tx, amount }) => (
+                <p className="hint" key={tx.id} style={{ margin: '4px 0 0' }}>
+                  {tx.date} 记录的空调费用 · 今日计入 {formatRmb(amount)}
+                </p>
+              ))}
+            </div>
+          )}
           <h3 className="cal-detail-title">当日流水</h3>
           {selectedTxs.length === 0 ? (
-            <EmptyState icon={<IconEmptyDay />} title="这天还没有记录" hint="可去「记账」补一笔" />
+            <EmptyState icon={<IconEmptyDay />} title="这天没有新流水" hint={selectedAcAllocations.length ? '上方已计入空调分摊' : '可去「记账」补一笔'} />
           ) : (
             <ul className="tx-list">
               {selectedTxs.map((tx) => (

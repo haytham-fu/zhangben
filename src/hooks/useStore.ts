@@ -31,6 +31,7 @@ import {
   increaseWalletForRefund,
   isPigWallet,
   PIG_WALLET_ID,
+  reconcileSettledAcExpense,
   settleClosedMonths,
   sourceAvail,
 } from '../utils/wallets';
@@ -46,6 +47,7 @@ export interface AddTxInput {
   note?: string;
   isSpecial?: boolean;
   isMonthly?: boolean;
+  spreadDays?: number;
   paymentMethod?: PaymentMethod;
   /** Override conversion rate (e.g. live FX); otherwise settings rate */
   rate?: number;
@@ -151,6 +153,8 @@ export function useStore() {
         note: input.note ?? '',
         isSpecial: input.isSpecial ?? false,
         isMonthly: input.isMonthly ?? false,
+        spreadDays: input.categoryId === 'ac' && Number.isInteger(input.spreadDays) &&
+          input.spreadDays! >= 1 && input.spreadDays! <= 365 ? input.spreadDays : undefined,
         paymentMethod: input.paymentMethod ?? 'none',
         walletId: input.walletId ?? null,
         createdAt: new Date().toISOString(),
@@ -163,6 +167,7 @@ export function useStore() {
       if (isBudgetExpense(tx) && tx.walletId) {
         wallets = mapWalletsSpend(wallets, tx.walletId, tx.amountRmb);
       }
+      wallets = reconcileSettledAcExpense(s.settings, wallets, null, tx);
       return { ...s, transactions: [tx, ...s.transactions], wallets };
     });
   }, []);
@@ -189,6 +194,7 @@ export function useStore() {
       if (isSpend) {
         wallets = mapWalletsSpend(wallets, nextTx.walletId, nextTx.amountRmb);
       }
+      wallets = reconcileSettledAcExpense(s.settings, wallets, prev, nextTx);
       return {
         ...s,
         transactions: s.transactions.map((t) => (t.id === id ? nextTx : t)),
@@ -205,6 +211,7 @@ export function useStore() {
       if (isBudgetExpense(prev) && prev.walletId) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);
       }
+      wallets = reconcileSettledAcExpense(s.settings, wallets, prev, null);
       const usedIds = new Set(prev.pantryUseIds ?? []);
       const pantryItems = usedIds.size === 0 ? s.pantryItems : s.pantryItems.map((item) =>
         usedIds.has(item.id)

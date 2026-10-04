@@ -4,7 +4,7 @@ import { rolldown } from 'rolldown';
 
 const bundle = await rolldown({ input: new URL('../src/utils/wallets.ts', import.meta.url).pathname, platform: 'node' });
 const { output } = await bundle.generate({ format: 'esm' });
-const { createPigWallet, settleClosedMonths } = await import(
+const { createPigWallet, reconcileSettledAcExpense, settleClosedMonths } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
@@ -97,4 +97,19 @@ test('opening an empty month tracks it without crediting older months', () => {
   const nextMonth = settleClosedMonths(opened, '2026-11');
   assert.equal(nextMonth.wallets[0].balance, 5000);
   assert.deepEqual(nextMonth.settings.settledMonths, ['2026-10']);
+});
+
+test('editing an old air-conditioning payment corrects a settled month once', () => {
+  const pig = createPigWallet();
+  pig.balance = 1000;
+  const original = {
+    ...tx('2026-09-30', 100), categoryId: 'ac',
+  };
+  const spread = { ...original, spreadDays: 10 };
+  const wallets = reconcileSettledAcExpense(
+    state([], [pig], ['2026-09']).settings, [pig], original, spread,
+  );
+  assert.equal(wallets[0].balance, 1090);
+  assert.equal(wallets[0].transfers[0].ym, '2026-09');
+  assert.equal(wallets[0].transfers[0].amount, 90);
 });

@@ -1,6 +1,7 @@
 import type { AppState, Category, Settings, Transaction } from '../types';
 import {
   budgetStatus,
+  expenseInMonth,
   filterMonth,
   isBudgetExpense,
   monthBasicUsed,
@@ -122,10 +123,11 @@ export async function renderLedgerInfographic(opts: InfographicOptions): Promise
 
   const catMap = new Map(state.categories.map((c: Category) => [c.id, c]));
   const catSums = new Map<string, number>();
-  for (const t of monthTxs) {
+  for (const t of state.transactions) {
     if (!isBudgetExpense(t)) continue;
     if (!includeOpts.includeSpecial && t.isSpecial) continue;
-    catSums.set(t.categoryId, (catSums.get(t.categoryId) ?? 0) + t.amountRmb);
+    const amount = expenseInMonth(t, ym);
+    if (amount > 0) catSums.set(t.categoryId, (catSums.get(t.categoryId) ?? 0) + amount);
   }
   const topCats = [...catSums.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const maxCat = topCats[0]?.[1] ?? 1;
@@ -201,9 +203,9 @@ export async function renderLedgerInfographic(opts: InfographicOptions): Promise
     ctx.font = '800 40px "PingFang SC", "Noto Sans SC", sans-serif';
     ctx.fillText(value, x, 365);
   };
-  drawStat(100, '本月支出', `¥${expense.toFixed(0)}`, '#ef4444');
+  drawStat(100, '流水支出', `¥${expense.toFixed(0)}`, '#ef4444');
   drawStat(420, '本月收入', `¥${income.toFixed(0)}`, '#16a34a');
-  drawStat(740, '净支出合计', `¥${totalUsed.toFixed(0)}`, '#1e40af');
+  drawStat(740, '预算净支出', `¥${totalUsed.toFixed(0)}`, '#1e40af');
 
   // Budget / summary card
   roundRect(ctx, 60, 450, W - 120, planOn ? 280 : 200, 32);

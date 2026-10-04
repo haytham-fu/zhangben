@@ -9,7 +9,7 @@ import type {
   WalletTransfer,
   WalletTransferSource,
 } from '../types';
-import { filterMonth, isBudgetExpense, monthBasicUsed, monthSpecialUsed } from './budget';
+import { expenseInMonth, filterMonth, isBudgetExpense, monthBasicUsed, monthSpecialUsed } from './budget';
 import { roundMoney } from './grocery';
 import { localMonthKey, normalizeTxDate } from './dates';
 
@@ -373,6 +373,36 @@ export function settledMonthsOf(settings: Settings): string[] {
 
 export function isMonthSettled(settings: Settings, ym: string): boolean {
   return settledMonthsOf(settings).includes(ym);
+}
+
+/** Keep an already-settled pig balance correct when an air-conditioning entry is edited later. */
+export function reconcileSettledAcExpense(
+  settings: Settings,
+  wallets: Wallet[],
+  before: Transaction | null,
+  after: Transaction | null,
+): Wallet[] {
+  if (before?.categoryId !== 'ac' && after?.categoryId !== 'ac') return wallets;
+  const settled = settledMonthsOf(settings);
+  if (settled.length === 0) return wallets;
+  let next = wallets;
+  for (const ym of settled) {
+    const counted = (tx: Transaction | null) =>
+      tx && (tx.bucket !== 'basic' || settings.includeSpecialInAdvice || !tx.isSpecial)
+        ? expenseInMonth(tx, ym)
+        : 0;
+    const difference = roundMoney(counted(before) - counted(after));
+    if (difference === 0) continue;
+    const pigIdx = next.findIndex(isPigWallet);
+    if (pigIdx < 0) continue;
+    const updated = [...next];
+    updated[pigIdx] = applyTransferToWallet(
+      next[pigIdx], difference > 0 ? 'in' : 'out', Math.abs(difference),
+      'settle', `${ym} 空调记录调整`, ym,
+    );
+    next = updated;
+  }
+  return next;
 }
 
 /** Reconstruct user jars at the close of a past month, excluding later activity. */

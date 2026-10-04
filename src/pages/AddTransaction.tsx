@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BudgetFxBar } from '../components/BudgetFxBar';
 import { GlassCard } from '../components/GlassCard';
 import { IconAdd, IconPayment } from '../components/CuteIcons';
-import { PaymentPicker } from '../components/PaymentPicker';
 import type { Store } from '../hooks/useStore';
 import type { Bucket, Currency, PaymentMethod, TxKind, TxType } from '../types';
 import {
@@ -49,6 +48,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   const [note, setNote] = useState('');
   const [isSpecial, setIsSpecial] = useState(false);
   const [isMonthly, setIsMonthly] = useState(false);
+  const [spreadDays, setSpreadDays] = useState('10');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('other');
   const [walletId, setWalletId] = useState<string | null>(null);
   const [sundryName, setSundryName] = useState('');
@@ -136,6 +136,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setNote('');
     setIsSpecial(false);
     setIsMonthly(false);
+    setSpreadDays('10');
     setDate(todayStr);
     setCurrency('RMB');
     setPaymentMethod('other');
@@ -159,8 +160,20 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setNote(prefill?.note ?? '');
     setIsSpecial(false);
     setIsMonthly(false);
+    setSpreadDays('10');
     setDate(todayStr);
     setWalletId(null);
+  }
+
+  function startOctopusTopup() {
+    resetForm();
+    setSuccessMessage('');
+    setMode('topup');
+    setType('expense');
+    setKind('topup');
+    setCategoryId('octopus_topup');
+    setCurrency('HKD');
+    setPaymentMethod('octopus');
   }
 
   useEffect(() => {
@@ -175,6 +188,12 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     const n = parseFloat(amount);
     if (Number.isNaN(n) || n <= 0) {
       alert('请输入有效金额');
+      return;
+    }
+    const days = Number(spreadDays);
+    if (kind !== 'topup' && type === 'expense' && categoryId === 'ac' && !isMonthly &&
+        (!Number.isInteger(days) || days < 1 || days > 365)) {
+      alert('空调分摊天数请填写 1～365 天');
       return;
     }
     let cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
@@ -202,6 +221,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       note,
       isSpecial: kind === 'topup' ? false : isSpecial,
       isMonthly: monthly,
+      spreadDays: cat.id === 'ac' ? days : undefined,
       paymentMethod: pay,
       rate: resolved.rate,
       walletId: kind === 'topup' || type === 'income' ? null : walletId,
@@ -209,7 +229,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       resetForm();
       setMode('hub');
       setWizardStep('category');
-      setSuccessMessage('已记入一笔，可继续记账');
+      setSuccessMessage(kind === 'topup' ? '八达通充值已保存，实际消费时再记支出' : '已记入一笔，可继续记账');
       onDone();
     } catch {
       alert('保存失败，请重试');
@@ -396,6 +416,23 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 ≈ {formatRmb(previewRmb)} · 预算桶：{bucket === 'special' ? `专项 ${settings.specialBudget}` : `基础 ${settings.basicBudget}`}
                 {rateLoading ? ' · 汇率刷新中…' : rateNote ? ` · ${rateNote}` : ''}
               </p>
+              {categoryId === 'ac' && !isMonthly && (
+                <div className="field">
+                  <label htmlFor="ac-spread-days">空调费用分摊天数</label>
+                  <input
+                    id="ac-spread-days"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="365"
+                    value={spreadDays}
+                    onChange={(e) => setSpreadDays(e.target.value)}
+                  />
+                  <p className="hint">
+                    从所选日期起，约每天计入 {formatRmb(previewRmb / (Number(spreadDays) || 1))}；整笔只保存一次。
+                  </p>
+                </div>
+              )}
               <div className="toggle-row">
                 <span style={{ fontSize: '0.85rem' }}>特例（请客等）</span>
                 <button
@@ -579,6 +616,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                     </button>
                   ))}
               </div>
+              <p className="sheet-section-label section-gap">八达通</p>
+              <button type="button" className="btn btn-secondary btn-block" onClick={startOctopusTopup}>
+                💳 八达通充值（不计支出）
+              </button>
+              <p className="hint">充值金额可跨月使用；实际刷卡时，选消费分类和「八达通消费」。</p>
               </div>
               <div className="modal-actions">
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setMode('hub')}>
@@ -667,10 +709,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                     }}
                   >
                     <IconPayment method={m} size={28} />
-                    <span>{PAYMENT_LABEL[m]}</span>
+                    <span>{m === 'octopus' ? '八达通消费' : PAYMENT_LABEL[m]}</span>
                   </button>
                 ))}
               </div>
+              <p className="hint">八达通消费按实际刷卡日计入支出；充值本身不计支出。</p>
               </div>
               <div className="modal-actions">
               <button
@@ -781,11 +824,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             )}
 
             {mode === 'topup' && (
-              <div className="field">
-                <label>支付方式</label>
-                <PaymentPicker value="octopus" onChange={() => setPaymentMethod('octopus')} />
-                <p className="hint">充值默认八达通，不计入预算支出</p>
-              </div>
+              <p className="hint">这笔充值只记录充入八达通的港币金额。之后每次刷卡，再按交通或吃饭等类型记消费。</p>
             )}
 
             <div className="field">

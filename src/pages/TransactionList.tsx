@@ -141,7 +141,7 @@ export function TransactionList({ store }: Props) {
         </div>
         <div className="stat-grid" style={{ marginBottom: 12 }}>
           <div className="stat-pill">
-            <div className="k">支出合计</div>
+            <div className="k">本月流水支出</div>
             <div className="v" style={{ color: 'var(--red-500)' }}>
               {formatRmb(sumExpense)}
             </div>
@@ -161,7 +161,7 @@ export function TransactionList({ store }: Props) {
               <li key={group.date} className="tx-day-group">
                 <div className="tx-day-header">
                   <span className="tx-day-title">{dayHeaderLabel(group.date)}</span>
-                  <span className="tx-day-meta">支出 {formatRmb(group.daySpend)}</span>
+                  <span className="tx-day-meta">流水支出 {formatRmb(group.daySpend)}</span>
                 </div>
                 <ul className="tx-day-items">
                   {group.items.map((tx) => (
@@ -321,7 +321,10 @@ export function TransactionList({ store }: Props) {
               {selected.date} · {selected.bucket === 'special' ? '专项' : '基础'}
               {selected.isSpecial ? ' · 请客特例' : ''}
               {selected.isMonthly ? ' · 月度支出' : ''}
-              {selected.kind === 'topup' ? ' · 充值不计支出' : ''}
+              {selected.kind === 'topup' ? ' · 充值不计支出，可跨月使用' : ''}
+              {selected.categoryId === 'ac' && (selected.spreadDays ?? 1) > 1
+                ? ` · 从记录日起分摊 ${selected.spreadDays} 天`
+                : ''}
               {selected.isGroceryPurchase ? ' · 食材入库，做饭时计支出' : ''}
               {selected.paymentMethod !== 'none' ? ` · ${PAYMENT_LABEL[selected.paymentMethod]}` : ''}
             </p>

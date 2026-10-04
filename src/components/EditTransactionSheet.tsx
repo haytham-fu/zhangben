@@ -28,6 +28,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
   const [note, setNote] = useState(tx.note ?? '');
   const [isSpecial, setIsSpecial] = useState(!!tx.isSpecial);
   const [isMonthly, setIsMonthly] = useState(!!tx.isMonthly);
+  const [spreadDays, setSpreadDays] = useState(String(tx.spreadDays ?? 1));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     tx.paymentMethod === 'none' ? 'other' : tx.paymentMethod,
   );
@@ -86,6 +87,12 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
     let nextBucket = bucket;
     const nextMonthly = isExpense && isMonthly;
     const nextSpecial = isExpense && isSpecial;
+    const days = Number(spreadDays);
+    if (isExpense && categoryId === 'ac' && !nextMonthly &&
+        (!Number.isInteger(days) || days < 1 || days > 365)) {
+      alert('空调分摊天数请填写 1～365 天');
+      return;
+    }
 
     if (nextMonthly) {
       const m = categories.find((c) => c.id === 'membership');
@@ -111,6 +118,7 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
       note: note.trim(),
       isSpecial: nextSpecial,
       isMonthly: nextMonthly,
+      spreadDays: catId === 'ac' ? days : undefined,
       paymentMethod: pay,
       walletId: isInventory ? tx.walletId : isExpense ? walletId : null,
     });
@@ -177,6 +185,22 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
               ≈ {formatRmb(previewRmb)}
               {isTopup ? '（充值不计预算支出）' : isInventory ? '（入库不计支出；为避免库存成本不一致，日期与金额暂不可改）' : ''}
             </p>
+
+            {isExpense && categoryId === 'ac' && !isMonthly && (
+              <div className="field">
+                <label htmlFor="edit-ac-spread-days">空调费用分摊天数</label>
+                <input
+                  id="edit-ac-spread-days"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="365"
+                  value={spreadDays}
+                  onChange={(e) => setSpreadDays(e.target.value)}
+                />
+                <p className="hint">从所选日期起约每天 {formatRmb(previewRmb / (Number(spreadDays) || 1))}。旧记录可在这里改为 10 天。</p>
+              </div>
+            )}
 
             {!isTopup && (
               <div className="field">
