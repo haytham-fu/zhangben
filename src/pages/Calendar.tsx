@@ -18,6 +18,7 @@ import type { Store } from '../hooks/useStore';
 import {
   dailyStatus,
   dayNetBasic,
+  dayNetAll,
   expenseOnDate,
   dayTxCount,
   getDailyPlanAmount,
@@ -71,17 +72,18 @@ export function CalendarPage({ store }: Props) {
   const dayStats = useMemo(() => {
     const map = new Map<
       string,
-      { used: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
+      { used: number; total: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
     >();
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
-      // Plan compare uses basic net; spent figure follows basic (daily plan is basic living)
+      // Plan comparison remains basic; displayed daily spend includes the special bucket too.
       const used = dayNetBasic(transactions, dateStr, opts);
+      const total = dayNetAll(transactions, dateStr, opts);
       const plan = getDailyPlanAmount(dateStr, settings);
       const remain = Math.round((plan - used) * 100) / 100;
       const status = planOn ? dailyStatus(Math.max(0, used), plan) : 'safe';
       const txCount = dayTxCount(transactions, dateStr);
-      map.set(dateStr, { used, plan, remain, status, txCount });
+      map.set(dateStr, { used, total, plan, remain, status, txCount });
     }
     return map;
     // monthStats.txCount forces recompute when any tx is added/removed
@@ -113,7 +115,7 @@ export function CalendarPage({ store }: Props) {
     let sum = 0;
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
-      sum += dayNetBasic(transactions, dateStr, opts);
+      sum += dayNetAll(transactions, dateStr, opts);
     }
     return Math.round(sum * 100) / 100;
   }, [days, transactions, opts.includeSpecial]);
@@ -146,8 +148,8 @@ export function CalendarPage({ store }: Props) {
       >
         <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
           {planOn
-            ? `每日基础净支出与相对日计划余缺 · 本月净支出 ${formatRmb(monthSpend)}`
-            : `每日基础净支出 · 本月净支出 ${formatRmb(monthSpend)}（计划对照已关）`}
+            ? `每日总净支出（含专项）；余缺只对照基础日计划 · 本月净支出 ${formatRmb(monthSpend)}`
+            : `每日总净支出（含专项）· 本月净支出 ${formatRmb(monthSpend)}（计划对照已关）`}
         </p>
 
         <div className="cal-weekdays" aria-hidden>
@@ -169,7 +171,7 @@ export function CalendarPage({ store }: Props) {
             const isToday = dateKey === todayStr;
             const isFuture = dateKey > todayStr;
             const isSel = selected === dateKey;
-            const showNums = !isFuture || stat.used !== 0 || stat.txCount > 0;
+            const showNums = !isFuture || stat.total !== 0 || stat.txCount > 0;
             return (
               <button
                 key={dateStr}
@@ -188,15 +190,15 @@ export function CalendarPage({ store }: Props) {
                 onClick={() => setSelectedDate(dateStr)}
                 aria-label={
                   planOn
-                    ? `${dateStr} 支出${stat.used} 剩余${stat.remain}`
-                    : `${dateStr} 支出${stat.used}`
+                    ? `${dateStr} 总支出${stat.total} 基础计划剩余${stat.remain}`
+                    : `${dateStr} 总支出${stat.total}`
                 }
                 aria-selected={isSel}
               >
                 <span className="cal-daynum">{format(d, 'd')}</span>
                 {showNums ? (
                   <>
-                    <span className="cal-spend">{compactYuan(stat.used)}</span>
+                    <span className="cal-spend">{compactYuan(stat.total)}</span>
                     {planOn && (
                       <span className={`cal-remain ${stat.remain >= 0 ? 'pos' : 'neg'}`}>
                         {stat.remain >= 0
@@ -242,8 +244,8 @@ export function CalendarPage({ store }: Props) {
           ) : null}
           <div className={`stat-grid ${planOn ? 'section-gap' : ''}`}>
             <div className="stat-pill">
-              <div className="k">当日净支出</div>
-              <div className="v">{formatRmb(selectedStats.used)}</div>
+              <div className="k">当日总净支出</div>
+              <div className="v">{formatRmb(selectedStats.total)}</div>
             </div>
             {planOn ? (
               <div className="stat-pill">
