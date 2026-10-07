@@ -48,6 +48,9 @@ export interface AddTxInput {
   isSpecial?: boolean;
   isMonthly?: boolean;
   spreadDays?: number;
+  sundryProduct?: string;
+  sundryCapacity?: number;
+  sundryUnit?: string;
   paymentMethod?: PaymentMethod;
   /** Override conversion rate (e.g. live FX); otherwise settings rate */
   rate?: number;
@@ -153,8 +156,11 @@ export function useStore() {
         note: input.note ?? '',
         isSpecial: input.isSpecial ?? false,
         isMonthly: input.isMonthly ?? false,
-        spreadDays: input.categoryId === 'ac' && Number.isInteger(input.spreadDays) &&
+        spreadDays: ['ac', 'sundries'].includes(input.categoryId) && Number.isInteger(input.spreadDays) &&
           input.spreadDays! >= 1 && input.spreadDays! <= 365 ? input.spreadDays : undefined,
+        sundryProduct: input.categoryId === 'sundries' ? input.sundryProduct : undefined,
+        sundryCapacity: input.categoryId === 'sundries' ? input.sundryCapacity : undefined,
+        sundryUnit: input.categoryId === 'sundries' ? input.sundryUnit : undefined,
         paymentMethod: input.paymentMethod ?? 'none',
         walletId: input.walletId ?? null,
         createdAt: new Date().toISOString(),

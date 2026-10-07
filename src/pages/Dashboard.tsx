@@ -11,8 +11,10 @@ import {
   buildAdvice,
   dailyStatus,
   expenseInMonth,
+  expenseOnDate,
   getSatMode,
   isBudgetExpense,
+  isSpreadSundry,
   weekdayLabel,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
@@ -32,6 +34,8 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
     : false);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const { basicUsed, specialUsed, totalBudget, totalUsed, totalRemain, todayUsed, todayPlan } = monthStats;
+  const todaySundryUsed = transactions.filter(isSpreadSundry)
+    .reduce((sum, tx) => sum + expenseOnDate(tx, todayStr), 0);
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
   const advice = planUseful && budgetsSet
@@ -96,6 +100,9 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
             </div>
           )}
         </div>
+        {todaySundryUsed > 0 && (
+          <p className="hint section-gap">另有日用品分摊 {formatRmb(todaySundryUsed)}，计入专项，不占今日基础计划。</p>
+        )}
         {planUseful && isSat && (
           <div className="section-gap">
             <p className="hint" style={{ marginBottom: 8 }}>

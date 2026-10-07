@@ -17,8 +17,8 @@ import { CapacityEstimatePanel } from '../components/CapacityEstimatePanel';
 import { CookFromPantryFlow } from '../components/CookFromPantryFlow';
 import type { CapUnit } from '../utils/capacityEstimate';
 import {
-  defaultUnit,
   estimateFromCapacity,
+  estimateSundryDays,
   findProductProfile,
   sundryProfiles,
 } from '../utils/capacityEstimate';
@@ -55,6 +55,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
   const [sundryCapacityRaw, setSundryCapacityRaw] = useState('1');
   const [sundryCapacityUnit, setSundryCapacityUnit] = useState<CapUnit>('瓶');
   const [sundryManualNote, setSundryManualNote] = useState(false);
+  const [sundryDaysOverride, setSundryDaysOverride] = useState<string | null>(null);
   const [batchText, setBatchText] = useState('');
   const [rateNote, setRateNote] = useState('');
   const [resolvedRate, setResolvedRate] = useState(1);
@@ -65,6 +66,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
 
   const selected = categories.find((c) => c.id === categoryId);
   const bucket: Bucket = selected?.bucket ?? 'basic';
+  const sundryProfile = findProductProfile(sundryName);
+  const sundryCapacity = Number(sundryCapacityRaw);
+  const suggestedSundryDays = sundryProfile
+    ? estimateSundryDays(sundryProfile, sundryCapacity, sundryCapacityUnit) : null;
+  const sundryDaysRaw = sundryDaysOverride ?? String(suggestedSundryDays ?? 1);
 
   useEffect(() => {
     if (type !== 'expense' || kind !== 'normal') return;
@@ -145,6 +151,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setSundryCapacityRaw('1');
     setSundryCapacityUnit('瓶');
     setSundryManualNote(false);
+    setSundryDaysOverride(null);
   }
 
   function startExpenseWizard(prefill?: DeepLinkAddPrefill | null) {
@@ -163,6 +170,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
     setSpreadDays('10');
     setDate(todayStr);
     setWalletId(null);
+    setSundryName('');
+    setSundryCapacityRaw('1');
+    setSundryCapacityUnit('瓶');
+    setSundryManualNote(false);
+    setSundryDaysOverride(null);
   }
 
   function startOctopusTopup() {
@@ -191,9 +203,20 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       return;
     }
     const days = Number(spreadDays);
+    const sundryDays = Number(sundryDaysRaw);
     if (kind !== 'topup' && type === 'expense' && categoryId === 'ac' && !isMonthly &&
         (!Number.isInteger(days) || days < 1 || days > 365)) {
       alert('空调分摊天数请填写 1～365 天');
+      return;
+    }
+    if (kind !== 'topup' && type === 'expense' && categoryId === 'sundries' && !isMonthly &&
+        (!Number.isInteger(sundryDays) || sundryDays < 1 || sundryDays > 365)) {
+      alert('日用品预计使用天数请填写 1～365 天');
+      return;
+    }
+    if (categoryId === 'sundries' && sundryProfile &&
+        (!Number.isFinite(sundryCapacity) || sundryCapacity <= 0)) {
+      alert('请填写有效的日用品容量');
       return;
     }
     let cat = filteredCats.find((c) => c.id === categoryId) ?? filteredCats[0];
@@ -221,7 +244,10 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       note,
       isSpecial: kind === 'topup' ? false : isSpecial,
       isMonthly: monthly,
-      spreadDays: cat.id === 'ac' ? days : undefined,
+      spreadDays: cat.id === 'ac' ? days : cat.id === 'sundries' ? sundryDays : undefined,
+      sundryProduct: cat.id === 'sundries' ? sundryProfile?.name : undefined,
+      sundryCapacity: cat.id === 'sundries' && sundryProfile ? sundryCapacity : undefined,
+      sundryUnit: cat.id === 'sundries' && sundryProfile ? sundryCapacityUnit : undefined,
       paymentMethod: pay,
       rate: resolved.rate,
       walletId: kind === 'topup' || type === 'income' ? null : walletId,
@@ -484,10 +510,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                       selectedName={profile?.name ?? sundryName}
                       onSelectProfile={(p) => {
                         setSundryName(p.name);
-                        const u = defaultUnit(p);
+                        setSundryDaysOverride(null);
+                        const u = p.base;
                         setSundryCapacityUnit(u);
-                        if (!sundryCapacityRaw) setSundryCapacityRaw('1');
-                        const e = estimateFromCapacity(p, parseFloat(sundryCapacityRaw || '1'), u);
+                        setSundryCapacityRaw(String(p.packSize));
+                        const e = estimateFromCapacity(p, p.packSize, u);
                         if (e && !sundryManualNote) {
                           setNote(`${p.name} · ${e.shortLabel}`);
                         } else if (!sundryManualNote) {
@@ -497,17 +524,34 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                       onCapacityChange={(raw, unit) => {
                         setSundryCapacityRaw(raw);
                         setSundryCapacityUnit(unit);
+                        setSundryDaysOverride(null);
                         const p = findProductProfile(sundryName);
                         if (p && !sundryManualNote) {
                           const e = estimateFromCapacity(p, parseFloat(raw), unit);
                           if (e) setNote(`${p.name} · ${e.shortLabel}`);
                         }
                       }}
-                      footerHint="估算会写入备注，也可自行修改"
+                      footerHint="容量估算会写入备注；使用天数可按自己的习惯调整"
                     />
                     {est && (
                       <p className="capacity-estimate-line">{est.label}</p>
                     )}
+                    <div className="field section-gap">
+                      <label htmlFor="sundry-spread-days">预计使用天数（可改）</label>
+                      <input
+                        id="sundry-spread-days"
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        max="365"
+                        value={sundryDaysRaw}
+                        onChange={(e) => setSundryDaysOverride(e.target.value)}
+                      />
+                      <p className="hint">
+                        {sundryProfile ? '按容量和常见使用频率粗估。' : '可先点选品名和容量。'}
+                        从记录日期起，约每天计入专项 {formatRmb(previewRmb / (Number(sundryDaysRaw) || 1))}；整笔只保存一次。
+                      </p>
+                    </div>
                   </div>
                 );
               })()}

@@ -322,7 +322,7 @@ export function TransactionList({ store }: Props) {
               {selected.isSpecial ? ' · 请客特例' : ''}
               {selected.isMonthly ? ' · 月度支出' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出，可跨月使用' : ''}
-              {selected.categoryId === 'ac' && (selected.spreadDays ?? 1) > 1
+              {['ac', 'sundries'].includes(selected.categoryId) && (selected.spreadDays ?? 1) > 1
                 ? ` · 从记录日起分摊 ${selected.spreadDays} 天`
                 : ''}
               {selected.isGroceryPurchase ? ' · 食材入库，做饭时计支出' : ''}
@@ -339,6 +339,9 @@ export function TransactionList({ store }: Props) {
             )}
             {selected.pantryCostRmb != null && selected.pantryCostRmb > 0 && (
               <p className="hint">库存均摊约 {formatRmb(selected.pantryCostRmb)}</p>
+            )}
+            {selected.sundryProduct && (
+              <p className="hint">{selected.sundryProduct}{selected.sundryCapacity ? ` · ${selected.sundryCapacity}${selected.sundryUnit ?? ''}` : ''}{selected.spreadDays ? ` · 约每天 ${formatRmb(selected.amountRmb / selected.spreadDays)}` : ''}</p>
             )}
             {selected.isGroceryPurchase && <p className="hint">食材已入库；本笔不计支出，做饭取用时再计入。</p>}
             {selected.note && <p style={{ marginTop: 8 }}>备注：{selected.note}</p>}

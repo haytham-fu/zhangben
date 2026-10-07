@@ -11,6 +11,9 @@ import {
 import { PAYMENT_LABEL } from '../utils/payment';
 import { ModalPortal } from './ModalPortal';
 import { PaymentPicker } from './PaymentPicker';
+import { CapacityEstimatePanel } from './CapacityEstimatePanel';
+import type { CapUnit } from '../utils/capacityEstimate';
+import { estimateSundryDays, findProductProfile, sundryProfiles } from '../utils/capacityEstimate';
 
 interface Props {
   tx: Transaction;
@@ -29,6 +32,12 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
   const [isSpecial, setIsSpecial] = useState(!!tx.isSpecial);
   const [isMonthly, setIsMonthly] = useState(!!tx.isMonthly);
   const [spreadDays, setSpreadDays] = useState(String(tx.spreadDays ?? 1));
+  const [sundryProduct, setSundryProduct] = useState(tx.sundryProduct ?? '');
+  const [sundryCapacityRaw, setSundryCapacityRaw] = useState(String(tx.sundryCapacity ?? 1));
+  const [sundryUnit, setSundryUnit] = useState<CapUnit>((tx.sundryUnit as CapUnit) ?? '瓶');
+  const [sundryDaysOverride, setSundryDaysOverride] = useState<string | null>(
+    tx.categoryId === 'sundries' ? String(tx.spreadDays ?? 1) : null,
+  );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     tx.paymentMethod === 'none' ? 'other' : tx.paymentMethod,
   );
@@ -67,6 +76,11 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
 
   const selectedCat = categories.find((c) => c.id === categoryId);
   const bucket: Bucket = bucketOverride ?? selectedCat?.bucket ?? tx.bucket;
+  const sundryProfile = findProductProfile(sundryProduct);
+  const sundryCapacity = Number(sundryCapacityRaw);
+  const sundrySuggestedDays = sundryProfile
+    ? estimateSundryDays(sundryProfile, sundryCapacity, sundryUnit) : null;
+  const sundryDaysRaw = sundryDaysOverride ?? String(sundrySuggestedDays ?? 1);
 
   const rate = useMemo(() => getRate(currency, settings), [currency, settings]);
   const previewRmb = (() => {
@@ -91,6 +105,17 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
     if (isExpense && categoryId === 'ac' && !nextMonthly &&
         (!Number.isInteger(days) || days < 1 || days > 365)) {
       alert('空调分摊天数请填写 1～365 天');
+      return;
+    }
+    const sundryDays = Number(sundryDaysRaw);
+    if (isExpense && categoryId === 'sundries' && !nextMonthly &&
+        (!Number.isInteger(sundryDays) || sundryDays < 1 || sundryDays > 365)) {
+      alert('日用品预计使用天数请填写 1～365 天');
+      return;
+    }
+    if (isExpense && categoryId === 'sundries' && sundryProfile &&
+        (!Number.isFinite(sundryCapacity) || sundryCapacity <= 0)) {
+      alert('请填写有效的日用品容量');
       return;
     }
 
@@ -118,7 +143,10 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
       note: note.trim(),
       isSpecial: nextSpecial,
       isMonthly: nextMonthly,
-      spreadDays: catId === 'ac' ? days : undefined,
+      spreadDays: catId === 'ac' ? days : catId === 'sundries' ? sundryDays : undefined,
+      sundryProduct: catId === 'sundries' ? sundryProfile?.name : undefined,
+      sundryCapacity: catId === 'sundries' && sundryProfile ? sundryCapacity : undefined,
+      sundryUnit: catId === 'sundries' && sundryProfile ? sundryUnit : undefined,
       paymentMethod: pay,
       walletId: isInventory ? tx.walletId : isExpense ? walletId : null,
     });
@@ -221,6 +249,44 @@ export function EditTransactionSheet({ tx, store, onClose }: Props) {
                       {c.name}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {isExpense && categoryId === 'sundries' && !isMonthly && (
+              <div className="section-gap">
+                <p className="sheet-section-label">日用品容量与分摊</p>
+                <CapacityEstimatePanel
+                  profile={sundryProfile}
+                  capacityRaw={sundryCapacityRaw}
+                  capacityUnit={sundryUnit}
+                  profiles={sundryProfiles()}
+                  selectedName={sundryProfile?.name ?? sundryProduct}
+                  onSelectProfile={(p) => {
+                    setSundryProduct(p.name);
+                    setSundryUnit(p.base);
+                    setSundryCapacityRaw(String(p.packSize));
+                    setSundryDaysOverride(null);
+                  }}
+                  onCapacityChange={(raw, unit) => {
+                    setSundryCapacityRaw(raw);
+                    setSundryUnit(unit);
+                    setSundryDaysOverride(null);
+                  }}
+                  footerHint="预计使用天数可以按自己的习惯修改"
+                />
+                <div className="field section-gap">
+                  <label htmlFor="edit-sundry-spread-days">预计使用天数（可改）</label>
+                  <input
+                    id="edit-sundry-spread-days"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="365"
+                    value={sundryDaysRaw}
+                    onChange={(e) => setSundryDaysOverride(e.target.value)}
+                  />
+                  <p className="hint">从记录日起约每天计入专项 {formatRmb(previewRmb / (Number(sundryDaysRaw) || 1))}；旧记录可在这里改为分摊。</p>
                 </div>
               </div>
             )}

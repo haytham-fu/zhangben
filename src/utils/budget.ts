@@ -62,11 +62,20 @@ export function isSpreadAc(tx: Transaction): boolean {
     Number.isInteger(tx.spreadDays) && (tx.spreadDays ?? 0) > 1 && (tx.spreadDays ?? 0) <= 365;
 }
 
+export function isSpreadSundry(tx: Transaction): boolean {
+  return tx.categoryId === 'sundries' && isBudgetExpense(tx) &&
+    Number.isInteger(tx.spreadDays) && (tx.spreadDays ?? 0) > 1 && (tx.spreadDays ?? 0) <= 365;
+}
+
+export function isSpreadExpense(tx: Transaction): boolean {
+  return isSpreadAc(tx) || isSpreadSundry(tx);
+}
+
 /** Exact cent allocation: e.g. ¥100 / 3 = 33.34 + 33.33 + 33.33. */
 export function expenseOnDate(tx: Transaction, dateStr: string): number {
   if (!isBudgetExpense(tx)) return 0;
   const date = normalizeTxDate(dateStr);
-  if (!isSpreadAc(tx)) return normalizeTxDate(tx.date) === date ? tx.amountRmb : 0;
+  if (!isSpreadExpense(tx)) return normalizeTxDate(tx.date) === date ? tx.amountRmb : 0;
   const offset = differenceInCalendarDays(parseLocalDate(date), parseLocalDate(tx.date));
   const days = tx.spreadDays!;
   if (offset < 0 || offset >= days) return 0;
@@ -77,7 +86,7 @@ export function expenseOnDate(tx: Transaction, dateStr: string): number {
 
 export function expenseInMonth(tx: Transaction, ym: string): number {
   if (!isBudgetExpense(tx)) return 0;
-  if (!isSpreadAc(tx)) return normalizeTxDate(tx.date).startsWith(ym) ? tx.amountRmb : 0;
+  if (!isSpreadExpense(tx)) return normalizeTxDate(tx.date).startsWith(ym) ? tx.amountRmb : 0;
   const start = parseLocalDate(tx.date);
   let cents = 0;
   for (let i = 0; i < tx.spreadDays!; i++) {

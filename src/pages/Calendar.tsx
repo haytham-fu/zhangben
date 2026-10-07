@@ -23,6 +23,7 @@ import {
   getDailyPlanAmount,
   getSatMode,
   isSpreadAc,
+  isSpreadSundry,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
@@ -95,6 +96,12 @@ export function CalendarPage({ store }: Props) {
   const selectedAcAllocations = selected
     ? transactions
         .filter(isSpreadAc)
+        .map((tx) => ({ tx, amount: expenseOnDate(tx, selected) }))
+        .filter(({ amount }) => amount > 0)
+    : [];
+  const selectedSundryAllocations = selected
+    ? transactions
+        .filter(isSpreadSundry)
         .map((tx) => ({ tx, amount: expenseOnDate(tx, selected) }))
         .filter(({ amount }) => amount > 0)
     : [];
@@ -292,9 +299,19 @@ export function CalendarPage({ store }: Props) {
               ))}
             </div>
           )}
+          {selectedSundryAllocations.length > 0 && (
+            <div className="grocery-summary-pill section-gap">
+              <strong>当日日用品分摊 · 专项 {formatRmb(selectedSundryAllocations.reduce((sum, item) => sum + item.amount, 0))}</strong>
+              {selectedSundryAllocations.map(({ tx, amount }) => (
+                <p className="hint" key={tx.id} style={{ margin: '4px 0 0' }}>
+                  {tx.sundryProduct ?? tx.note ?? '日用品'} · 今日计入 {formatRmb(amount)}
+                </p>
+              ))}
+            </div>
+          )}
           <h3 className="cal-detail-title">当日流水</h3>
           {selectedTxs.length === 0 ? (
-            <EmptyState icon={<IconEmptyDay />} title="这天没有新流水" hint={selectedAcAllocations.length ? '上方已计入空调分摊' : '可去「记账」补一笔'} />
+            <EmptyState icon={<IconEmptyDay />} title="这天没有新流水" hint={selectedAcAllocations.length || selectedSundryAllocations.length ? '上方已计入分摊费用' : '可去「记账」补一笔'} />
           ) : (
             <ul className="tx-list">
               {selectedTxs.map((tx) => (

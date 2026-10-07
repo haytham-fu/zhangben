@@ -36,8 +36,14 @@ function normalizeTransactions(list: unknown): Transaction[] {
       walletId: tx.walletId ?? null,
       isMonthly: legacyMonthly,
       isSpecial: Boolean(tx.isSpecial),
-      spreadDays: tx.categoryId === 'ac' && Number.isInteger(tx.spreadDays) &&
+      spreadDays: ['ac', 'sundries'].includes(tx.categoryId) && Number.isInteger(tx.spreadDays) &&
         tx.spreadDays! >= 1 && tx.spreadDays! <= 365 ? tx.spreadDays : undefined,
+      sundryProduct: tx.categoryId === 'sundries' && typeof tx.sundryProduct === 'string'
+        ? tx.sundryProduct : undefined,
+      sundryCapacity: tx.categoryId === 'sundries' && typeof tx.sundryCapacity === 'number' &&
+        Number.isFinite(tx.sundryCapacity) && tx.sundryCapacity > 0 ? tx.sundryCapacity : undefined,
+      sundryUnit: tx.categoryId === 'sundries' && typeof tx.sundryUnit === 'string'
+        ? tx.sundryUnit : undefined,
       isGroceryPurchase: Boolean(tx.isGroceryPurchase),
       groceryLotIds: Array.isArray(tx.groceryLotIds) ? tx.groceryLotIds.map(String) : undefined,
       pantryUseIds: Array.isArray(tx.pantryUseIds) ? tx.pantryUseIds.map(String) : undefined,

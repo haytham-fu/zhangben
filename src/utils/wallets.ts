@@ -375,20 +375,21 @@ export function isMonthSettled(settings: Settings, ym: string): boolean {
   return settledMonthsOf(settings).includes(ym);
 }
 
-/** Keep an already-settled pig balance correct when an air-conditioning entry is edited later. */
+/** Keep an already-settled pig balance correct when a spread expense is edited later. */
 export function reconcileSettledAcExpense(
   settings: Settings,
   wallets: Wallet[],
   before: Transaction | null,
   after: Transaction | null,
 ): Wallet[] {
-  if (before?.categoryId !== 'ac' && after?.categoryId !== 'ac') return wallets;
+  if (!['ac', 'sundries'].includes(before?.categoryId ?? '') &&
+      !['ac', 'sundries'].includes(after?.categoryId ?? '')) return wallets;
   const settled = settledMonthsOf(settings);
   if (settled.length === 0) return wallets;
   let next = wallets;
   for (const ym of settled) {
     const counted = (tx: Transaction | null) =>
-      tx && (tx.bucket !== 'basic' || settings.includeSpecialInAdvice || !tx.isSpecial)
+      tx && (settings.includeSpecialInAdvice || !tx.isSpecial)
         ? expenseInMonth(tx, ym)
         : 0;
     const difference = roundMoney(counted(before) - counted(after));
@@ -398,7 +399,7 @@ export function reconcileSettledAcExpense(
     const updated = [...next];
     updated[pigIdx] = applyTransferToWallet(
       next[pigIdx], difference > 0 ? 'in' : 'out', Math.abs(difference),
-      'settle', `${ym} 空调记录调整`, ym,
+      'settle', `${ym} 分摊记录调整`, ym,
     );
     next = updated;
   }

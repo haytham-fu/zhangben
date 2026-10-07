@@ -4,7 +4,7 @@ import { rolldown } from 'rolldown';
 
 const bundle = await rolldown({ input: new URL('../src/utils/budget.ts', import.meta.url).pathname, platform: 'node' });
 const { output } = await bundle.generate({ format: 'esm' });
-const { dayNetBasic, expenseInMonth, expenseOnDate, monthBasicUsed } = await import(
+const { dayNetBasic, expenseInMonth, expenseOnDate, monthBasicUsed, monthSpecialUsed } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
@@ -37,6 +37,25 @@ test('old air conditioning entries stay on their original day until edited', () 
   const tx = ac('2026-10-04', 100, undefined);
   assert.equal(dayNetBasic([tx], '2026-10-04', opts), 100);
   assert.equal(dayNetBasic([tx], '2026-10-05', opts), 0);
+});
+
+test('shampoo is saved once but charged to special budget over its usage period', () => {
+  const tx = {
+    ...ac('2026-10-30', 100.01, 3), id: 'shampoo-1', categoryId: 'sundries', bucket: 'special',
+    sundryProduct: '洗发水', sundryCapacity: 400, sundryUnit: 'ml',
+  };
+  assert.equal(expenseOnDate(tx, '2026-10-30'), 33.34);
+  assert.equal(expenseOnDate(tx, '2026-11-01'), 33.33);
+  assert.equal(expenseOnDate(tx, '2026-11-02'), 0);
+  assert.equal(monthSpecialUsed([tx], settings, '2026-10', opts), 66.68);
+  assert.equal(monthSpecialUsed([tx], settings, '2026-11', opts), 33.33);
+  assert.equal(dayNetBasic([tx], '2026-10-30', opts), 0);
+});
+
+test('old sundry entries without a duration remain a single-day charge', () => {
+  const tx = { ...ac('2026-10-30', 50, undefined), categoryId: 'sundries', bucket: 'special' };
+  assert.equal(expenseOnDate(tx, '2026-10-30'), 50);
+  assert.equal(expenseOnDate(tx, '2026-10-31'), 0);
 });
 
 test('Octopus recharge is excluded; actual Octopus spending counts once', () => {

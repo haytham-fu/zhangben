@@ -140,8 +140,12 @@ export interface Transaction {
   isSpecial: boolean; // 请客 etc.
   /** Monthly recurring expense (membership-like); usually 专项 */
   isMonthly: boolean;
-  /** 空调预付费用在预算中分摊的天数；旧记录没有此字段时仍按当天计。 */
+  /** 空调或日用品费用在预算中分摊的天数；旧记录没有此字段时仍按当天计。 */
   spreadDays?: number;
+  /** 日用品的容量信息，与备注分开保存以便之后修改。 */
+  sundryProduct?: string;
+  sundryCapacity?: number;
+  sundryUnit?: string;
   paymentMethod: PaymentMethod;
   /** Optional 小荷包 link */
   walletId?: string | null;

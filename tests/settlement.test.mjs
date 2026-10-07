@@ -113,3 +113,14 @@ test('editing an old air-conditioning payment corrects a settled month once', ()
   assert.equal(wallets[0].transfers[0].ym, '2026-09');
   assert.equal(wallets[0].transfers[0].amount, 90);
 });
+
+test('editing an old sundry duration corrects an already-settled month', () => {
+  const pig = createPigWallet();
+  pig.balance = 1000;
+  const original = { ...tx('2026-09-30', 100), categoryId: 'sundries', bucket: 'special' };
+  const spread = { ...original, spreadDays: 10 };
+  const wallets = reconcileSettledAcExpense(
+    state([], [pig], ['2026-09']).settings, [pig], original, spread,
+  );
+  assert.equal(wallets[0].balance, 1090);
+});

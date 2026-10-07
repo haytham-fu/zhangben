@@ -373,6 +373,22 @@ export function estimateFromCapacity(
   };
 }
 
+/** Suggested calendar duration for a sundry. Users can override this before saving. */
+export function estimateSundryDays(profile: ProductProfile, amount: number, unit: CapUnit): number | null {
+  if (profile.family !== 'sundry') return null;
+  const estimate = estimateFromCapacity(profile, amount, unit);
+  if (!estimate) return null;
+  if (estimate.kind === 'days') return Math.min(365, estimate.count);
+  const usesPerWeek: Record<string, number> = {
+    toothpaste: 14,
+    laundry: 2,
+    dish_soap: 7,
+    hand_soap: 28,
+  };
+  const frequency = usesPerWeek[profile.id] ?? 7;
+  return Math.min(365, Math.max(1, Math.ceil(estimate.count * 7 / frequency)));
+}
+
 export function unitLabel(u: CapUnit): string {
   if (u === '瓶') return '瓶(按建议)';
   if (u === '支') return '支(按建议)';
