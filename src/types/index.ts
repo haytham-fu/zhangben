@@ -142,6 +142,8 @@ export interface Transaction {
   isMonthly: boolean;
   /** 空调或日用品费用在预算中分摊的天数；旧记录没有此字段时仍按当天计。 */
   spreadDays?: number;
+  /** Generated once per date by a daily fixed-expense rule. */
+  dailyFixedRuleId?: string;
   /** 日用品的容量信息，与备注分开保存以便之后修改。 */
   sundryProduct?: string;
   sundryCapacity?: number;
@@ -158,6 +160,19 @@ export interface Transaction {
   pantryUseIds?: string[];
   /** 从库存估算计入本餐的 RMB */
   pantryCostRmb?: number;
+}
+
+export interface DailyFixedExpense {
+  id: string;
+  name: string;
+  /** Fixed amount in RMB for each calendar day. */
+  amountRmb: number;
+  categoryId: string;
+  bucket: Bucket;
+  startDate: string;
+  /** First day not charged. Kept as a tombstone for sync and audit. */
+  stoppedOn?: string;
+  updatedAt: string;
 }
 
 export interface DailyPlan {
@@ -198,6 +213,7 @@ export interface Settings {
   /** Fixed RMB per 1 foreign unit (RMB = 1 always) */
   fixedRates: Record<ForeignCurrency, number>;
   dailyPlan: DailyPlan;
+  dailyFixedExpenses?: DailyFixedExpense[];
   defaultSatMode: SatMode;
   /** Per-date sat mode overrides: YYYY-MM-DD -> play|stay */
   satModeOverrides: Record<string, SatMode>;

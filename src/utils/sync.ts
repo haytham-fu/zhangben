@@ -8,6 +8,8 @@ import {
 } from './device';
 import { importJson } from './storage';
 import { ensurePigWallet } from './wallets';
+import { materializeDailyFixed, mergeDailyFixedExpenses } from './dailyFixed';
+import { localDateStr } from './dates';
 import type { PairedDevice } from '../types';
 
 export const SYNC_KIND = 'zhangben-sync' as const;
@@ -187,6 +189,9 @@ export function mergeSyncIntoLocal(local: AppState, remote: AppState): SyncMerge
 
   const settings: Settings = ensureDeviceSettings({
     ...remoteS,
+    dailyFixedExpenses: mergeDailyFixedExpenses(
+      localS.dailyFixedExpenses ?? [], remoteS.dailyFixedExpenses ?? [],
+    ),
     deviceId: localS.deviceId,
     deviceName: localS.deviceName,
     linkCode,
@@ -202,13 +207,13 @@ export function mergeSyncIntoLocal(local: AppState, remote: AppState): SyncMerge
     remote.categories && remote.categories.length > 0 ? remote.categories : local.categories;
 
   return {
-    state: {
+    state: materializeDailyFixed({
       settings,
       transactions: tx.list,
       categories,
       wallets: ensurePigWallet(walletsMerge.list),
       pantryItems: pantry.list,
-    },
+    }, localDateStr()),
     addedTx: tx.added,
     addedWallets: walletsMerge.added,
     addedPantry: pantry.added,

@@ -321,6 +321,7 @@ export function TransactionList({ store }: Props) {
               {selected.date} · {selected.bucket === 'special' ? '专项' : '基础'}
               {selected.isSpecial ? ' · 请客特例' : ''}
               {selected.isMonthly ? ' · 月度支出' : ''}
+              {selected.dailyFixedRuleId ? ' · 每日固定支出自动计入' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出，可跨月使用' : ''}
               {['ac', 'sundries'].includes(selected.categoryId) && (selected.spreadDays ?? 1) > 1
                 ? ` · 从记录日起分摊 ${selected.spreadDays} 天`
@@ -347,7 +348,7 @@ export function TransactionList({ store }: Props) {
             {selected.note && <p style={{ marginTop: 8 }}>备注：{selected.note}</p>}
             </div>
             <div className="modal-actions">
-            <button
+            {!selected.dailyFixedRuleId && <button
               type="button"
               className="btn btn-primary btn-block"
               onClick={() => {
@@ -356,8 +357,8 @@ export function TransactionList({ store }: Props) {
               }}
             >
               编辑
-            </button>
-            <button
+            </button>}
+            {!selected.dailyFixedRuleId && <button
               type="button"
               className="btn btn-danger btn-block"
               onClick={() => {
@@ -366,7 +367,10 @@ export function TransactionList({ store }: Props) {
               }}
             >
               删除
-            </button>
+            </button>}
+            {selected.dailyFixedRuleId && (
+              <p className="hint">要修改或停止后续自动支出，请到「记账 → 支出 → 每日固定支出」。过去的记录会保留。</p>
+            )}
             <button
               type="button"
               className="btn btn-secondary btn-block"

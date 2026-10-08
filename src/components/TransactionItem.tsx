@@ -26,6 +26,7 @@ export function TransactionItem({ tx, category, wallet, onClick }: Props) {
             {title}
             {tx.isSpecial && <span className="badge badge-special">请客</span>}
             {tx.isMonthly && <span className="badge badge-monthly">月度</span>}
+            {tx.dailyFixedRuleId && <span className="badge badge-monthly">每日自动</span>}
             {['ac', 'sundries'].includes(tx.categoryId) && (tx.spreadDays ?? 1) > 1 &&
               <span className="badge badge-monthly">分摊{tx.spreadDays}天</span>}
             {isTopup && <span className="badge badge-topup">充值·不计支出</span>}

@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
     satStay: 0,
     sun: 0,
   },
+  dailyFixedExpenses: [],
   defaultSatMode: 'play',
   satModeOverrides: {},
   includeSpecialInAdvice: true,

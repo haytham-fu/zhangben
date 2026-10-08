@@ -11,6 +11,7 @@ import { costPerMeal, roundMoney } from './grocery';
 import { ensurePigWallet, normalizeWallet } from './wallets';
 import { normalizeTxDate } from './dates';
 import { ensureDeviceSettings, normalizeLinkCode, normalizePairedDevices, normalizeDeviceName } from './device';
+import { normalizeDailyFixedExpenses } from './dailyFixed';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -36,6 +37,8 @@ function normalizeTransactions(list: unknown): Transaction[] {
       walletId: tx.walletId ?? null,
       isMonthly: legacyMonthly,
       isSpecial: Boolean(tx.isSpecial),
+      dailyFixedRuleId: typeof tx.dailyFixedRuleId === 'string' && tx.dailyFixedRuleId.trim()
+        ? tx.dailyFixedRuleId.trim().slice(0, 80) : undefined,
       spreadDays: ['ac', 'sundries'].includes(tx.categoryId) && Number.isInteger(tx.spreadDays) &&
         tx.spreadDays! >= 1 && tx.spreadDays! <= 365 ? tx.spreadDays : undefined,
       sundryProduct: tx.categoryId === 'sundries' && typeof tx.sundryProduct === 'string'
@@ -231,6 +234,7 @@ export function normalizeSettings(raw: unknown): Settings {
     liveRatesUpdatedAt:
       typeof partial.liveRatesUpdatedAt === 'string' ? partial.liveRatesUpdatedAt : null,
     preferredCurrencies: normalizePreferredCurrencies(partial.preferredCurrencies),
+    dailyFixedExpenses: normalizeDailyFixedExpenses(partial.dailyFixedExpenses),
     fxRateMode: partial.fxRateMode === 'live' ? 'live' : 'fixed',
     settledMonths: Array.isArray(partial.settledMonths)
       ? partial.settledMonths.filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))

@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import type {
   AppState,
   Currency,
+  DailyFixedExpense,
   GroceryKind,
   PantryItem,
   SatMode,
@@ -23,6 +24,7 @@ import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount, isBu
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
 import { mergeProfileSettings, mergeProfileTransactions, type LedgerProfilePack } from '../utils/profile';
 import { mergeSyncIntoLocal, type SyncImportMode } from '../utils/sync';
+import { dailyFixedTransaction, materializeDailyFixed } from '../utils/dailyFixed';
 import {
   applyTransferToWallet,
   createWallet,
@@ -70,6 +72,8 @@ export interface GroceryItemInput {
   notes?: string;
 }
 
+export type DailyFixedInput = Pick<DailyFixedExpense, 'name' | 'amountRmb' | 'categoryId' | 'bucket'>;
+
 function mapWalletsSpend(wallets: Wallet[], walletId: string | null | undefined, amountRmb: number): Wallet[] {
   if (!walletId || amountRmb <= 0) return wallets;
   return wallets.map((w) => (w.id === walletId ? decreaseWalletForSpend(w, amountRmb) : w));
@@ -81,7 +85,7 @@ function mapWalletsRefund(wallets: Wallet[], walletId: string | null | undefined
 }
 
 export function useStore() {
-  const [state, setState] = useState<AppState>(() => loadState());
+  const [state, setState] = useState<AppState>(() => materializeDailyFixed(loadState(), localDateStr()));
   const [storageError, setStorageError] = useState(false);
 
   useLayoutEffect(() => {
@@ -112,14 +116,20 @@ export function useStore() {
   // Settle recorded months after the calendar rolls over, including months
   // restored from a backup. The helper is idempotent, even in StrictMode.
   useEffect(() => {
-    const settle = () => setState((s) => settleClosedMonths(s, localMonthKey()));
+    const settle = () => setState((s) =>
+      settleClosedMonths(materializeDailyFixed(s, localDateStr()), localMonthKey()));
     settle();
+    const timer = window.setInterval(settle, 60_000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') settle();
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [state.transactions, state.settings.basicBudget, state.settings.specialBudget, state.settings.monthOpening]);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [state.transactions, state.settings.basicBudget, state.settings.specialBudget,
+      state.settings.monthOpening, state.settings.dailyFixedExpenses]);
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
     setState((s) => ({ ...s, settings: { ...s.settings, ...partial } }));
@@ -133,6 +143,69 @@ export function useStore() {
         satModeOverrides: { ...s.settings.satModeOverrides, [dateStr]: mode },
       },
     }));
+  }, []);
+
+  const addDailyFixedExpense = useCallback((input: DailyFixedInput, startDate: string) => {
+    const today = localDateStr();
+    if (startDate < today || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+        !Number.isFinite(input.amountRmb) || input.amountRmb < 0.01 || input.amountRmb > 1_000_000) return;
+    const rule: DailyFixedExpense = {
+      ...input,
+      id: uuid(),
+      name: input.name.trim().slice(0, 40),
+      amountRmb: roundMoney(input.amountRmb),
+      startDate,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!rule.name) return;
+    setState((s) => materializeDailyFixed({
+      ...s,
+      settings: {
+        ...s.settings,
+        dailyFixedExpenses: [...(s.settings.dailyFixedExpenses ?? []), rule],
+      },
+    }, today));
+  }, []);
+
+  const updateDailyFixedExpense = useCallback((id: string, input: DailyFixedInput) => {
+    const today = localDateStr();
+    if (!input.name.trim() || !Number.isFinite(input.amountRmb) ||
+        input.amountRmb < 0.01 || input.amountRmb > 1_000_000) return;
+    setState((s) => {
+      const current = s.settings.dailyFixedExpenses?.find((r) => r.id === id && !r.stoppedOn);
+      if (!current) return s;
+      const next = {
+        ...current, ...input,
+        name: input.name.trim().slice(0, 40),
+        amountRmb: roundMoney(input.amountRmb),
+        updatedAt: new Date().toISOString(),
+      };
+      return materializeDailyFixed({
+        ...s,
+        settings: {
+          ...s.settings,
+          dailyFixedExpenses: (s.settings.dailyFixedExpenses ?? []).map((r) => r.id === id ? next : r),
+        },
+        transactions: s.transactions.map((tx) => tx.dailyFixedRuleId === id && tx.date === today
+          ? dailyFixedTransaction(next, today) : tx),
+      }, today);
+    });
+  }, []);
+
+  const stopDailyFixedExpense = useCallback((id: string) => {
+    const today = localDateStr();
+    setState((s) => {
+      const rules = s.settings.dailyFixedExpenses ?? [];
+      if (!rules.some((r) => r.id === id && !r.stoppedOn)) return s;
+      return materializeDailyFixed({
+        ...s,
+        settings: {
+          ...s.settings,
+          dailyFixedExpenses: rules.map((r) => r.id === id
+            ? { ...r, stoppedOn: today, updatedAt: new Date().toISOString() } : r),
+        },
+      }, today);
+    });
   }, []);
 
   const addTransaction = useCallback((input: AddTxInput) => {
@@ -182,6 +255,7 @@ export function useStore() {
     setState((s) => {
       const prev = s.transactions.find((t) => t.id === id);
       if (!prev) return s;
+      if (prev.dailyFixedRuleId) return s;
       const nextTx = { ...prev, ...patch };
       if (patch.date != null) nextTx.date = normalizeTxDate(patch.date);
       if (patch.amount != null || patch.currency != null || patch.rate != null) {
@@ -213,6 +287,7 @@ export function useStore() {
     setState((s) => {
       const prev = s.transactions.find((t) => t.id === id);
       if (!prev) return s;
+      if (prev.dailyFixedRuleId) return s;
       let wallets = s.wallets;
       if (isBudgetExpense(prev) && prev.walletId) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);
@@ -522,14 +597,14 @@ export function useStore() {
   );
 
   const replaceState = useCallback((next: AppState) => {
-    setState({
+    setState(materializeDailyFixed({
       ...next,
       wallets: ensurePigWallet(next.wallets ?? []),
       settings: {
         ...next.settings,
         settledMonths: next.settings.settledMonths ?? [],
       },
-    });
+    }, localDateStr()));
   }, []);
 
   const resetAll = useCallback(() => {
@@ -596,7 +671,7 @@ export function useStore() {
         setState((s) => {
           const localId = s.settings.deviceId;
           const localName = s.settings.deviceName;
-          return {
+          return materializeDailyFixed({
             ...remote,
             wallets: ensurePigWallet(remote.wallets ?? []),
             settings: {
@@ -605,7 +680,7 @@ export function useStore() {
               deviceName: localName || remote.settings.deviceName,
               settledMonths: remote.settings.settledMonths ?? [],
             },
-          };
+          }, localDateStr());
         });
         return { addedTx: remote.transactions.length };
       }
@@ -636,6 +711,9 @@ export function useStore() {
     updateSettings,
     setSatModeForDate,
     addTransaction,
+    addDailyFixedExpense,
+    updateDailyFixedExpense,
+    stopDailyFixedExpense,
     updateTransaction,
     deleteTransaction,
     addWallet,
