@@ -80,6 +80,14 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
     }
     seen.add(key);
     return true;
+  }).map((tx) => {
+    if (!tx.dailyFixedRuleId || tx.date !== today) return tx;
+    const rule = byId.get(tx.dailyFixedRuleId);
+    if (!rule || rule.startDate > today || rule.stoppedOn) return tx;
+    if (tx.amountRmb === rule.amountRmb && tx.categoryId === rule.categoryId &&
+        tx.bucket === rule.bucket && tx.note === rule.name) return tx;
+    changed = true;
+    return dailyFixedTransaction(rule, today);
   });
   const added: Transaction[] = [];
   for (const rule of rules) {

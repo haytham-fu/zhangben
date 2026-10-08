@@ -72,6 +72,18 @@ test('sync keeps a newer stop instead of reactivating a stale rule', () => {
   assert.deepEqual(mergeDailyFixedExpenses([stopped], [rule]), [stopped]);
 });
 
+test('a synced edit refreshes only today, leaving historic daily amounts intact', () => {
+  const opened = materializeDailyFixed(state(), '2026-10-02');
+  const edited = { ...rule, amountRmb: 12, name: '空调新日费',
+    updatedAt: '2026-10-02T09:00:00.000Z' };
+  const synced = materializeDailyFixed({
+    ...opened, settings: { ...opened.settings, dailyFixedExpenses: [edited] },
+  }, '2026-10-02');
+  assert.equal(dayNetBasic(synced.transactions, '2026-10-02', opts), 12);
+  assert.equal(dayNetBasic(synced.transactions, '2026-10-01', opts), 10);
+  assert.equal(materializeDailyFixed(synced, '2026-10-02'), synced);
+});
+
 test('caught-up daily expenses are counted before month-end pig settlement', () => {
   const before = state();
   before.settings.basicBudget = 3500;
