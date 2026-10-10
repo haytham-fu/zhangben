@@ -114,6 +114,11 @@ export interface PantryItem {
   kind: GroceryKind;
   /** 自己实际承担金额（RMB，AA 后） */
   costRmb: number;
+  /** Original shelf price and the conversion used when this lot was purchased. */
+  purchaseAmount?: number;
+  purchaseCurrency?: Currency;
+  purchaseRate?: number;
+  purchaseAaHalf?: boolean;
   mealsTotal: number;
   mealsLeft: number;
   /** costRmb / mealsTotal */
@@ -167,6 +172,9 @@ export interface DailyFixedExpense {
   name: string;
   /** Fixed amount in RMB for each calendar day. */
   amountRmb: number;
+  amount?: number;
+  currency?: Currency;
+  rate?: number;
   categoryId: string;
   bucket: Bucket;
   startDate: string;

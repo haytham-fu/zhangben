@@ -1,5 +1,6 @@
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import type { AppState, DailyFixedExpense, Transaction } from '../types';
+import { isCurrency } from './currency';
 import { roundMoney } from './grocery';
 
 function validDay(value: unknown): value is string {
@@ -24,6 +25,9 @@ export function normalizeDailyFixedExpenses(raw: unknown): DailyFixedExpense[] {
       id: r.id.trim().slice(0, 80),
       name: r.name.trim().slice(0, 40),
       amountRmb: roundMoney(r.amountRmb),
+      amount: typeof r.amount === 'number' && Number.isFinite(r.amount) && r.amount > 0 ? r.amount : r.amountRmb,
+      currency: isCurrency(r.currency) ? r.currency : 'RMB',
+      rate: typeof r.rate === 'number' && Number.isFinite(r.rate) && r.rate > 0 ? r.rate : 1,
       categoryId: r.categoryId.trim().slice(0, 80),
       bucket: r.bucket === 'special' ? 'special' : 'basic',
       startDate: r.startDate,
@@ -42,9 +46,9 @@ export function dailyFixedTransaction(rule: DailyFixedExpense, day: string): Tra
     type: 'expense',
     kind: 'normal',
     date: day,
-    amount: rule.amountRmb,
-    currency: 'RMB',
-    rate: 1,
+    amount: rule.amount ?? rule.amountRmb,
+    currency: rule.currency ?? 'RMB',
+    rate: rule.rate ?? 1,
     amountRmb: rule.amountRmb,
     categoryId: rule.categoryId,
     bucket: rule.bucket,
@@ -84,7 +88,8 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
     if (!tx.dailyFixedRuleId || tx.date !== today) return tx;
     const rule = byId.get(tx.dailyFixedRuleId);
     if (!rule || rule.startDate > today || rule.stoppedOn) return tx;
-    if (tx.amountRmb === rule.amountRmb && tx.categoryId === rule.categoryId &&
+    if (tx.amountRmb === rule.amountRmb && tx.amount === (rule.amount ?? rule.amountRmb) &&
+        tx.currency === (rule.currency ?? 'RMB') && tx.rate === (rule.rate ?? 1) && tx.categoryId === rule.categoryId &&
         tx.bucket === rule.bucket && tx.note === rule.name) return tx;
     changed = true;
     return dailyFixedTransaction(rule, today);

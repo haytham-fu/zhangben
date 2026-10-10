@@ -116,6 +116,10 @@ function normalizePantryItems(list: unknown): PantryItem[] {
           ? kind
           : 'custom',
       costRmb,
+      purchaseAmount: typeof p.purchaseAmount === 'number' && Number.isFinite(p.purchaseAmount) && p.purchaseAmount >= 0 ? p.purchaseAmount : undefined,
+      purchaseCurrency: isCurrency(p.purchaseCurrency) ? p.purchaseCurrency : undefined,
+      purchaseRate: typeof p.purchaseRate === 'number' && Number.isFinite(p.purchaseRate) && p.purchaseRate > 0 ? p.purchaseRate : undefined,
+      purchaseAaHalf: p.purchaseAaHalf === true,
       mealsTotal,
       mealsLeft,
       costPerMeal: cpm,

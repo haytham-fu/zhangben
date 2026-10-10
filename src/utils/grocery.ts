@@ -96,6 +96,11 @@ export function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Convert the shopper's share once, before allocating the cost across meals. */
+export function groceryCostRmb(amount: number, rate: number, aaHalf: boolean): number {
+  return roundMoney((aaHalf ? amount / 2 : amount) * rate);
+}
+
 export function costPerMeal(costRmb: number, meals: number): number {
   if (meals <= 0) return 0;
   return roundMoney(costRmb / meals);

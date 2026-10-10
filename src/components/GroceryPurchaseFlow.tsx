@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Store } from '../hooks/useStore';
-import type { GroceryKind, PaymentMethod } from '../types';
+import { useExpenseRates } from '../hooks/useExpenseRates';
+import type { Currency, GroceryKind, PaymentMethod } from '../types';
 import type { CapUnit } from '../utils/capacityEstimate';
 import {
   defaultUnit,
@@ -8,10 +9,11 @@ import {
   findProductProfile,
   seasoningProfiles,
 } from '../utils/capacityEstimate';
-import { formatRmb } from '../utils/currency';
+import { CURRENCY_META, formatMoney, formatRmb, orderedCurrenciesForPicker } from '../utils/currency';
 import {
   GROCERY_KIND_OPTIONS,
   costPerMeal,
+  groceryCostRmb,
   estimateSeasoningMeals,
   kindIcon,
   purchaseCostPerMeal,
@@ -31,8 +33,9 @@ interface DraftItem {
   key: string;
   kind: GroceryKind;
   name: string;
-  /** 我实际出的钱（对半前总额；AA 在 parsed 里处理） */
+  /** Original-currency shelf price, before the optional AA split. */
   cost: number;
+  currency: Currency;
   meals: number;
   /** Seasoning capacity (draft string so empty works) */
   capacityRaw: string;
@@ -66,6 +69,7 @@ function emptyDraft(kind: GroceryKind, name: string): DraftItem {
     kind,
     name,
     cost: 0,
+    currency: 'RMB',
     meals,
     capacityRaw: kind === 'seasoning' ? '1' : '',
     capacityUnit: unit,
@@ -87,6 +91,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   const [backfillOpen, setBackfillOpen] = useState(false);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
+  const fx = useExpenseRates(items.map((it) => it.currency), store.settings);
 
   function addKind(kind: GroceryKind, name?: string) {
     const label =
@@ -132,10 +137,10 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
     setItems((prev) => prev.filter((it) => it.key !== key));
   }
 
-  const parsed = useMemo(() => {
-    return items.map((it) => {
+  const parsed = items.map((it) => {
       const gross = Number.isFinite(it.cost) && it.cost > 0 ? it.cost : 0;
-      const costRmb = aaHalf ? roundMoney(gross / 2) : roundMoney(gross);
+      const rate = fx.rateFor(it.currency);
+      const costRmb = groceryCostRmb(gross, rate, aaHalf);
       const meals = Number.isFinite(it.meals) && it.meals > 0 ? it.meals : 0;
       const profile = it.kind === 'seasoning' ? findProductProfile(it.name) : null;
       const capAmt = parseFloat(it.capacityRaw);
@@ -146,6 +151,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
       return {
         ...it,
         gross,
+        rate,
         costRmb,
         meals,
         perMeal: meals > 0 ? costPerMeal(costRmb, meals) : 0,
@@ -153,7 +159,6 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
         profile,
       };
     });
-  }, [items, aaHalf]);
 
   const validItems = parsed.filter((it) => it.costRmb > 0 && it.meals > 0);
   const totalCost = purchaseTotalCost(validItems);
@@ -162,6 +167,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
   const totalOverMax = maxMeals > 0 ? roundMoney(totalCost / maxMeals) : 0;
 
   function goPayment() {
+    if (!fx.ready) return;
     if (validItems.length === 0) {
       alert('请至少添加一项，并填写「我实际出的钱」和「大约可吃几顿」');
       return;
@@ -181,6 +187,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
 
   function save() {
     if (savingRef.current) return;
+    if (!fx.ready) return;
     if (validItems.length === 0) {
       alert('没有可保存的品类');
       return;
@@ -195,7 +202,10 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
       items: validItems.map((it) => ({
         name: it.name,
         kind: it.kind,
-        costRmb: it.costRmb,
+        amount: it.gross,
+        currency: it.currency,
+        rate: it.rate,
+        aaHalf,
         meals: it.meals,
       })),
     });
@@ -357,12 +367,21 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                         <label>{aaHalf ? '购入总额（对半前）' : '我实际出的钱'}</label>
                         <AmountInput
                           step="0.01"
-                          placeholder="RMB"
+                          placeholder={CURRENCY_META[it.currency].symbol}
                           value={it.cost}
                           onValueChange={(n) => updateItem(it.key, { cost: n })}
                         />
                       </div>
                       <div className="field">
+                        <label>支出币种</label>
+                        <select value={it.currency} onChange={(e) => updateItem(it.key, { currency: e.target.value as Currency })}>
+                          {orderedCurrenciesForPicker(store.settings.preferredCurrencies).map((currency) => (
+                            <option key={currency} value={currency}>{CURRENCY_META[currency].label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="field">
                         <label>大约可吃几顿</label>
                         <AmountInput
                           step="0.1"
@@ -373,19 +392,14 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
                             updateItem(it.key, { meals: n, mealsManual: true })
                           }
                         />
-                      </div>
                     </div>
-                    {aaHalf && it.gross > 0 && (
+                    {it.gross > 0 && (
                       <p className="hint" style={{ marginTop: -6 }}>
-                        我实际出的钱 ≈ {formatRmb(it.costRmb)}
+                        {it.currency !== 'RMB' ? `${formatMoney(it.gross, it.currency)}${aaHalf ? '（AA 对半）' : ''} ≈ ` : aaHalf ? 'AA 后约 ' : ''}{formatRmb(it.costRmb)}
                         {it.meals > 0 ? ` · 每顿约 ${formatRmb(it.perMeal)}` : ''}
                       </p>
                     )}
-                    {!aaHalf && it.costRmb > 0 && it.meals > 0 && (
-                      <p className="hint" style={{ marginTop: -6 }}>
-                        每顿约 {formatRmb(it.perMeal)}
-                      </p>
-                    )}
+                    {it.currency !== 'RMB' && <p className="hint">{fx.rateNoteFor(it.currency)}</p>}
                     {it.kind === 'seasoning' && it.liveEst && (
                       <p className="capacity-estimate-line" style={{ marginTop: 4 }}>
                         {it.liveEst.label}
@@ -414,8 +428,8 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               </div>
             )}
 
-            <button type="button" className="btn btn-primary btn-block section-gap" onClick={goPayment}>
-              下一步：选支付方式
+            <button type="button" className="btn btn-primary btn-block section-gap" onClick={goPayment} disabled={!fx.ready}>
+              {fx.ready ? '下一步：选支付方式' : '正在获取汇率…'}
             </button>
           </>
         )}
@@ -443,7 +457,7 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
               <ul className="grocery-summary-lines">
                 {validItems.map((it) => (
                   <li key={it.key}>
-                    {kindIcon(it.kind)} {it.name} · {formatRmb(it.costRmb)} / {it.meals} 顿 · 约{' '}
+                    {kindIcon(it.kind)} {it.name} · {it.currency !== 'RMB' ? `${formatMoney(it.gross, it.currency)}${aaHalf ? '（AA 对半）' : ''} ≈ ` : ''}{formatRmb(it.costRmb)} / {it.meals} 顿 · 约{' '}
                     {formatRmb(it.perMeal)}/顿
                   </li>
                 ))}
@@ -481,8 +495,8 @@ export function GroceryPurchaseFlow({ store, onCancel, onDone }: Props) {
 
             <p className="hint">保存后只增加食材库存；做饭选用食材时再计入支出。</p>
 
-            <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={saving}>
-              {saving ? '已入库' : '确认食材入库'}
+            <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={saving || !fx.ready}>
+              {saving ? '已入库' : fx.ready ? '确认食材入库' : '正在获取汇率…'}
             </button>
             <button type="button" className="btn btn-ghost btn-block section-gap" onClick={() => setStep('items')}>
               返回修改

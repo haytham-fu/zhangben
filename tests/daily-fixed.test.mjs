@@ -102,3 +102,15 @@ test('invalid imported rules are ignored', () => {
   assert.equal(imported.length, 1);
   assert.equal(imported[0].id, 'rule-1');
 });
+
+test('foreign-currency daily fixed expense preserves original price and counts RMB once', () => {
+  const foreign = { ...rule, amount: 10, currency: 'HKD', rate: 0.86, amountRmb: 8.6 };
+  const [restored] = normalizeDailyFixedExpenses([foreign]);
+  const opened = materializeDailyFixed(state([restored]), '2026-09-30');
+  assert.equal(opened.transactions.length, 2);
+  assert.equal(opened.transactions[0].amount, 10);
+  assert.equal(opened.transactions[0].currency, 'HKD');
+  assert.equal(opened.transactions[0].rate, 0.86);
+  assert.equal(dayNetBasic(opened.transactions, '2026-09-30', opts), 8.6);
+  assert.equal(materializeDailyFixed(opened, '2026-09-30'), opened);
+});

@@ -17,7 +17,7 @@ import type {
   WalletTransferSource,
 } from '../types';
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
-import { costPerMeal, nextPantryMealCost, roundMoney } from '../utils/grocery';
+import { costPerMeal, groceryCostRmb, nextPantryMealCost, roundMoney } from '../utils/grocery';
 import { loadState, saveState } from '../utils/storage';
 import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
 import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount, isBudgetExpense } from '../utils/budget';
@@ -66,13 +66,20 @@ export interface AddTxInput {
 export interface GroceryItemInput {
   name: string;
   kind: GroceryKind;
-  /** 我实际出的钱（已含 AA 后的净额） */
-  costRmb: number;
+  /** Shelf price in the chosen currency, before any AA split. */
+  amount: number;
+  currency: Currency;
+  rate: number;
+  aaHalf: boolean;
   meals: number;
   notes?: string;
 }
 
-export type DailyFixedInput = Pick<DailyFixedExpense, 'name' | 'amountRmb' | 'categoryId' | 'bucket'>;
+export type DailyFixedInput = Pick<DailyFixedExpense, 'name' | 'categoryId' | 'bucket'> & {
+  amount: number;
+  currency: Currency;
+  rate: number;
+};
 
 function mapWalletsSpend(wallets: Wallet[], walletId: string | null | undefined, amountRmb: number): Wallet[] {
   if (!walletId || amountRmb <= 0) return wallets;
@@ -147,13 +154,15 @@ export function useStore() {
 
   const addDailyFixedExpense = useCallback((input: DailyFixedInput, startDate: string) => {
     const today = localDateStr();
+    const amountRmb = toRmbWithRate(input.amount, input.rate);
     if (startDate < today || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
-        !Number.isFinite(input.amountRmb) || input.amountRmb < 0.01 || input.amountRmb > 1_000_000) return;
+        !Number.isFinite(amountRmb) || amountRmb < 0.01 || amountRmb > 1_000_000 ||
+        !Number.isFinite(input.rate) || input.rate <= 0) return;
     const rule: DailyFixedExpense = {
       ...input,
       id: uuid(),
       name: input.name.trim().slice(0, 40),
-      amountRmb: roundMoney(input.amountRmb),
+      amountRmb,
       startDate,
       updatedAt: new Date().toISOString(),
     };
@@ -169,15 +178,17 @@ export function useStore() {
 
   const updateDailyFixedExpense = useCallback((id: string, input: DailyFixedInput) => {
     const today = localDateStr();
-    if (!input.name.trim() || !Number.isFinite(input.amountRmb) ||
-        input.amountRmb < 0.01 || input.amountRmb > 1_000_000) return;
+    const amountRmb = toRmbWithRate(input.amount, input.rate);
+    if (!input.name.trim() || !Number.isFinite(amountRmb) ||
+        amountRmb < 0.01 || amountRmb > 1_000_000 ||
+        !Number.isFinite(input.rate) || input.rate <= 0) return;
     setState((s) => {
       const current = s.settings.dailyFixedExpenses?.find((r) => r.id === id && !r.stoppedOn);
       if (!current) return s;
       const next = {
         ...current, ...input,
         name: input.name.trim().slice(0, 40),
-        amountRmb: roundMoney(input.amountRmb),
+        amountRmb,
         updatedAt: new Date().toISOString(),
       };
       return materializeDailyFixed({
@@ -446,12 +457,16 @@ export function useStore() {
           const id = uuid();
           lotIds.push(id);
           const meals = Math.max(0.1, it.meals);
-          const cost = roundMoney(Math.max(0, it.costRmb));
+          const cost = groceryCostRmb(Math.max(0, it.amount), it.rate, it.aaHalf);
           return {
             id,
             name: it.name.trim() || '食材',
             kind: it.kind,
             costRmb: cost,
+            purchaseAmount: it.amount,
+            purchaseCurrency: it.currency,
+            purchaseRate: it.rate,
+            purchaseAaHalf: it.aaHalf,
             mealsTotal: meals,
             mealsLeft: meals,
             costPerMeal: costPerMeal(cost, meals),
