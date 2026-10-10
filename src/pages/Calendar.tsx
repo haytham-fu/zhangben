@@ -25,6 +25,7 @@ import {
   getSatMode,
   isSpreadAc,
   isSpreadSundry,
+  monthPaceSnapshot,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
@@ -50,11 +51,15 @@ function statusClass(s: BudgetStatus): string {
 }
 
 export function CalendarPage({ store }: Props) {
-  const { settings, transactions, categoryMap, walletMap, todayStr, monthStats, setSatModeForDate } = store;
+  const { settings, transactions, categoryMap, walletMap, todayStr, currentYm, monthStats, setSatModeForDate } = store;
   const planOn = settings.dailyPlanCompareEnabled === true;
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   // Anchor "today" from local YYYY-MM-DD to avoid parseISO UTC off-by-one
   const today = parseLocalDate(todayStr);
+  const pace = useMemo(() => monthPaceSnapshot(transactions, settings, currentYm, today, opts),
+    [transactions, settings, currentYm, todayStr, opts.includeSpecial]);
+  const hasBudget = pace.totalBudget > 0;
+  const difference = planOn ? pace.paceDifference : pace.totalRemaining;
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -122,6 +127,21 @@ export function CalendarPage({ store }: Props) {
 
   return (
     <>
+      <GlassCard title="截至今天 · 生活费" className="cal-pace-card">
+        {hasBudget ? (
+          <>
+            <p className="hint cal-pace-caption">{planOn ? `本月第 ${pace.elapsedDays}/${pace.totalDays} 天 · 对照生活费预算进度` : '计划对照已关闭 · 对照本月完整预算'}</p>
+            <div className={`cal-pace-value ${difference < 0 ? 'is-over' : 'is-surplus'}`}>
+              <span>{difference < 0 ? '超支' : '盈余'}</span>
+              <strong>{formatRmb(Math.abs(difference))}</strong>
+            </div>
+            <p className="hint cal-pace-detail">
+              {planOn ? `截至今天计划可用 ${formatRmb(pace.pacedBudget)}` : `本月总预算 ${formatRmb(pace.totalBudget)}`} · 实际净支出 {formatRmb(pace.totalUsed)}
+            </p>
+            {planOn && <p className="hint cal-pace-note">按基础＋专项月预算平均分配到今天；月底结余仍以整月实际支出为准。</p>}
+          </>
+        ) : <p className="hint">设置生活费预算后，这里会显示截至今天的盈余或超支。</p>}
+      </GlassCard>
       <GlassCard
         title="日历"
         action={

@@ -232,6 +232,40 @@ export function calendarProgress(ym: string, today: Date): number {
   return elapsed / totalDays;
 }
 
+/** Current-month pace, counting only dates through today (plus any imported opening balance). */
+export function monthPaceSnapshot(
+  txs: Transaction[], settings: Settings, ym: string, today: Date,
+  opts: { includeSpecial: boolean },
+) {
+  const start = startOfMonth(parseLocalDate(`${ym}-01`));
+  const end = endOfMonth(start);
+  const through = startOfDay(today) < start ? null : startOfDay(today) > end ? end : startOfDay(today);
+  const dates = through ? eachDayOfInterval({ start, end: through }) : [];
+  const opening = monthOpeningUsed(settings, ym);
+  let basicCents = Math.round(opening.basicUsed * 100);
+  let specialCents = Math.round(opening.specialUsed * 100);
+  for (const date of dates) {
+    const day = format(date, 'yyyy-MM-dd');
+    basicCents += Math.round(dayNetBasic(txs, day, opts) * 100);
+    specialCents += Math.round((dayNetAll(txs, day, opts) - dayNetBasic(txs, day, opts)) * 100);
+  }
+  const basicUsed = basicCents / 100;
+  const specialUsed = specialCents / 100;
+  const totalUsed = (basicCents + specialCents) / 100;
+  const totalBudget = settings.basicBudget + settings.specialBudget;
+  const totalDays = eachDayOfInterval({ start, end }).length;
+  const elapsedDays = dates.length;
+  const daysLeft = Math.max(0, totalDays - elapsedDays);
+  const pacedBudget = Math.round(totalBudget * elapsedDays / totalDays * 100) / 100;
+  const paceDifference = Math.round((pacedBudget - totalUsed) * 100) / 100;
+  const totalRemaining = Math.round((totalBudget - totalUsed) * 100) / 100;
+  return {
+    basicUsed, specialUsed, totalUsed, totalBudget, totalDays, elapsedDays, daysLeft,
+    pacedBudget, paceDifference, totalRemaining,
+    basicPlanned: plannedBasicToDate(ym, today, settings),
+  };
+}
+
 export type BudgetStatus = 'safe' | 'near' | 'over' | 'severe';
 
 export function budgetStatus(used: number, budget: number): BudgetStatus {
@@ -254,48 +288,33 @@ export function dailyStatus(used: number, plan: number): BudgetStatus {
 }
 
 export function buildAdvice(
-  basicUsed: number,
-  specialUsed: number,
+  txs: Transaction[],
   settings: Settings,
   ym: string,
   today: Date,
 ): string[] {
-  const tips: string[] = [];
-  const totalBudget = settings.basicBudget + settings.specialBudget;
-  const totalUsed = basicUsed + specialUsed;
-  const progress = calendarProgress(ym, today);
-  const expectedBasic = settings.basicBudget * progress;
-  const planned = plannedBasicToDate(ym, today, settings);
-
-  const basicRemain = settings.basicBudget - basicUsed;
-  const specialRemain = settings.specialBudget - specialUsed;
-
-  if (basicUsed > planned * 1.15 && planned > 0) {
-    tips.push(`基础支出偏快：已用 ¥${basicUsed.toFixed(0)}，按日计划累计约 ¥${planned.toFixed(0)}。`);
-  } else if (basicUsed < planned * 0.7 && planned > 50) {
-    tips.push(`基础节奏良好：已用低于日计划累计，可适当放松。`);
+  const s = monthPaceSnapshot(txs, settings, ym, today,
+    { includeSpecial: settings.includeSpecialInAdvice });
+  const money = (n: number) => `¥${Math.abs(n).toFixed(2)}`;
+  const tips = [
+    `本月已过 ${s.elapsedDays}/${s.totalDays} 天；按生活费总预算 ${money(s.totalBudget)} 均匀分配，截至今天可用 ${money(s.pacedBudget)}，实际净支出 ${money(s.totalUsed)}。`,
+    s.paceDifference >= 0
+      ? `目前比预算进度少花 ${money(s.paceDifference)}；这是暂时的节奏盈余，不是月底最终结余。`
+      : `目前比预算进度多花 ${money(-s.paceDifference)}；接下来需放慢支出，才能回到月预算内。`,
+    `基础生活已用 ${money(s.basicUsed)} / ${money(settings.basicBudget)}；按每日计划累计 ${money(s.basicPlanned)}，${s.basicUsed <= s.basicPlanned ? `少花 ${money(s.basicPlanned - s.basicUsed)}` : `多花 ${money(s.basicUsed - s.basicPlanned)}`}。专项已用 ${money(s.specialUsed)} / ${money(settings.specialBudget)}。`,
+    s.daysLeft > 0
+      ? s.totalRemaining >= 0
+        ? `本月还剩 ${money(s.totalRemaining)}，余下 ${s.daysLeft} 天平均每天可用约 ${money(s.totalRemaining / s.daysLeft)}（基础与专项合计）。`
+        : `本月预算已超 ${money(-s.totalRemaining)}；余下 ${s.daysLeft} 天，建议优先保障吃饭和交通，暂停可推迟的专项购买。`
+      : s.totalRemaining >= 0
+        ? `本月结束时预计结余 ${money(s.totalRemaining)}。`
+        : `本月结束时预计超支 ${money(-s.totalRemaining)}。`,
+  ];
+  if (settings.specialBudget > 0 && settings.specialBudget - s.specialUsed < settings.specialBudget * 0.1) {
+    tips.push(`专项额度只剩 ${money(settings.specialBudget - s.specialUsed)}，会员与日用品等新增开销要留意。`);
   }
-
-  if (basicUsed > expectedBasic * 1.2 && progress > 0.1) {
-    tips.push(`相对日历进度，基础桶偏紧（进度 ${(progress * 100).toFixed(0)}%）。`);
-  }
-
-  if (specialUsed > settings.specialBudget * 0.9) {
-    tips.push(`专项接近上限，剩余 ¥${specialRemain.toFixed(0)}。`);
-  }
-
-  if (totalUsed > totalBudget) {
-    tips.push(`本月合计已超支 ¥${(totalUsed - totalBudget).toFixed(0)}，建议控制非必要消费。`);
-  } else if (basicRemain < 200 && progress < 0.85) {
-    tips.push(`基础剩余不多（¥${basicRemain.toFixed(0)}），月底前宜收紧吃饭与交通。`);
-  }
-
-  if (tips.length === 0) {
-    tips.push(`节奏平稳：基础剩余 ¥${basicRemain.toFixed(0)}，专项剩余 ¥${specialRemain.toFixed(0)}。`);
-  }
-
   if (!settings.includeSpecialInAdvice) {
-    tips.push('当前建议已排除「特例」支出。');
+    tips.push('上述实际净支出已排除标为「特例」的记录。');
   }
 
   return tips;

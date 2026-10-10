@@ -1685,6 +1685,38 @@ html[data-modal-open="true"][data-bg-motion="dynamic"] #root::before {
 }
 
 /* Calendar */
+.cal-pace-card {
+  overflow: hidden;
+}
+
+.cal-pace-caption {
+  margin: 0 0 10px;
+}
+
+.cal-pace-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-pace-value span {
+  font-weight: 750;
+  color: var(--text-muted);
+}
+
+.cal-pace-value strong {
+  font-size: clamp(1.8rem, 8vw, 2.7rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.cal-pace-value.is-surplus strong { color: var(--blue-800); }
+.cal-pace-value.is-over strong { color: var(--red-500); }
+.cal-pace-detail { margin: 10px 0 0; line-height: 1.55; }
+.cal-pace-note { margin: 5px 0 0; font-size: 0.76rem; line-height: 1.5; }
+
 .cal-nav {
   display: flex;
   align-items: center;

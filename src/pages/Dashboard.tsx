@@ -41,7 +41,7 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
   const advice = planUseful && budgetsSet
-    ? buildAdvice(basicUsed, specialUsed, settings, currentYm, new Date())
+    ? buildAdvice(transactions, settings, currentYm, new Date())
     : budgetsSet
       ? [
           `本月基础净支出 ${formatRmb(basicUsed)}，专项 ${formatRmb(specialUsed)}，合计 ${formatRmb(totalUsed)}。`,
