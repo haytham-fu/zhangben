@@ -218,6 +218,8 @@ export interface PairedDevice {
 export interface Settings {
   basicBudget: number;
   specialBudget: number;
+  /** Marks the one-time correction of legacy special-category transactions. */
+  specialBucketRepairVersion?: 1;
   /** Fixed RMB per 1 foreign unit (RMB = 1 always) */
   fixedRates: Record<ForeignCurrency, number>;
   dailyPlan: DailyPlan;

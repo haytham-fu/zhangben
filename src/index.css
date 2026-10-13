@@ -1808,6 +1808,13 @@ html[data-modal-open="true"][data-bg-motion="dynamic"] #root::before {
   line-height: 1.15;
 }
 
+.cal-special {
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--blue-700);
+  line-height: 1.1;
+}
+
 .cal-remain {
   font-size: 0.55rem;
   font-weight: 700;

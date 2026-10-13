@@ -12,6 +12,7 @@ import { ensurePigWallet, normalizeWallet } from './wallets';
 import { normalizeTxDate } from './dates';
 import { ensureDeviceSettings, normalizeLinkCode, normalizePairedDevices, normalizeDeviceName } from './device';
 import { normalizeDailyFixedExpenses } from './dailyFixed';
+import { repairLegacySpecialBuckets } from './specialBucketRepair';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -232,6 +233,7 @@ export function normalizeSettings(raw: unknown): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...rest,
+    specialBucketRepairVersion: partial.specialBucketRepairVersion === 1 ? 1 : undefined,
     showMonthlyBudgetProgress,
     fixedRates,
     liveRates,
@@ -305,13 +307,13 @@ export function loadState(): AppState {
     }
   }
   const data = safeParse<Partial<AppState>>(raw);
-  return {
+  return repairLegacySpecialBuckets({
     settings: ensureDeviceSettings(normalizeSettings(data?.settings)),
     transactions: normalizeTransactions(data?.transactions),
     categories: normalizeCategories(data?.categories),
     wallets: data?.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
     pantryItems: normalizePantryItems(data?.pantryItems),
-  };
+  });
 }
 
 export function saveState(state: AppState): void {
@@ -324,13 +326,13 @@ export function exportJson(state: AppState): string {
 
 export function importJson(raw: string): AppState {
   const data = JSON.parse(raw) as Partial<AppState>;
-  return {
+  return repairLegacySpecialBuckets({
     settings: ensureDeviceSettings(normalizeSettings(data.settings)),
     transactions: normalizeTransactions(data.transactions),
     categories: normalizeCategories(data.categories),
     wallets: data.wallets != null ? normalizeWallets(data.wallets) : [...DEFAULT_WALLETS],
     pantryItems: normalizePantryItems(data.pantryItems),
-  };
+  });
 }
 
 export function mergeSettings(partial: Partial<Settings>): Settings {

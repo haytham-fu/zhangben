@@ -4,7 +4,7 @@ import { rolldown } from 'rolldown';
 
 const bundle = await rolldown({ input: new URL('../src/utils/budget.ts', import.meta.url).pathname, platform: 'node' });
 const { output } = await bundle.generate({ format: 'esm' });
-const { dayNetAll, dayNetBasic, expenseInMonth, expenseOnDate, monthBasicUsed, monthSpecialUsed } = await import(
+const { dayNetAll, dayNetBasic, dayNetSpecial, expenseInMonth, expenseOnDate, monthBasicUsed, monthSpecialUsed } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
@@ -50,8 +50,17 @@ test('shampoo is saved once but charged to special budget over its usage period'
   assert.equal(monthSpecialUsed([tx], settings, '2026-10', opts), 66.68);
   assert.equal(monthSpecialUsed([tx], settings, '2026-11', opts), 33.33);
   assert.equal(dayNetBasic([tx], '2026-10-30', opts), 0);
+  assert.equal(dayNetSpecial([tx], '2026-10-30', opts), 33.34);
   assert.equal(dayNetAll([tx], '2026-10-30', opts), 33.34);
   assert.equal(dayNetAll([tx], '2026-11-01', opts), 33.33);
+});
+
+test('special-only day leaves the basic daily plan untouched', () => {
+  const tx = { ...ac('2026-10-13', 80), id: 'hobby', categoryId: 'hobbies', bucket: 'special' };
+  assert.equal(dayNetBasic([tx], '2026-10-13', opts), 0);
+  assert.equal(dayNetSpecial([tx], '2026-10-13', opts), 80);
+  assert.equal(monthBasicUsed([tx], settings, '2026-10', opts), 0);
+  assert.equal(monthSpecialUsed([tx], settings, '2026-10', opts), 80);
 });
 
 test('old sundry entries without a duration remain a single-day charge', () => {

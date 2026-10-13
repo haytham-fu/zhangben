@@ -187,6 +187,20 @@ export function dayNetBasic(
   return cents / 100;
 }
 
+/** Special-bucket net spend for one day; never consumes the basic daily plan. */
+export function dayNetSpecial(
+  txs: Transaction[], dateStr: string, opts: { includeSpecial: boolean },
+): number {
+  const day = normalizeTxDate(dateStr);
+  let cents = 0;
+  for (const tx of txs) {
+    if (tx.bucket !== 'special' || (!opts.includeSpecial && tx.isSpecial)) continue;
+    if (isBudgetIncome(tx) && normalizeTxDate(tx.date) === day) cents -= Math.round(tx.amountRmb * 100);
+    else cents += Math.round(expenseOnDate(tx, day) * 100);
+  }
+  return cents / 100;
+}
+
 /** All budget-counting net spend for a calendar day (basic + special). */
 export function dayNetAll(
   txs: Transaction[],

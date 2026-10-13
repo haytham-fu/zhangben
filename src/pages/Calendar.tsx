@@ -18,6 +18,7 @@ import type { Store } from '../hooks/useStore';
 import {
   dailyStatus,
   dayNetBasic,
+  dayNetSpecial,
   dayNetAll,
   expenseOnDate,
   dayTxCount,
@@ -77,18 +78,19 @@ export function CalendarPage({ store }: Props) {
   const dayStats = useMemo(() => {
     const map = new Map<
       string,
-      { used: number; total: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
+      { used: number; special: number; total: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
     >();
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
-      // Plan comparison remains basic; displayed daily spend includes the special bucket too.
+      // The daily plan is basic-only; show special spending separately.
       const used = dayNetBasic(transactions, dateStr, opts);
+      const special = dayNetSpecial(transactions, dateStr, opts);
       const total = dayNetAll(transactions, dateStr, opts);
       const plan = getDailyPlanAmount(dateStr, settings);
       const remain = Math.round((plan - used) * 100) / 100;
       const status = planOn ? dailyStatus(Math.max(0, used), plan) : 'safe';
       const txCount = dayTxCount(transactions, dateStr);
-      map.set(dateStr, { used, total, plan, remain, status, txCount });
+      map.set(dateStr, { used, special, total, plan, remain, status, txCount });
     }
     return map;
     // monthStats.txCount forces recompute when any tx is added/removed
@@ -168,8 +170,8 @@ export function CalendarPage({ store }: Props) {
       >
         <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
           {planOn
-            ? `每日总净支出（含专项）；余缺只对照基础日计划 · 本月净支出 ${formatRmb(monthSpend)}`
-            : `每日总净支出（含专项）· 本月净支出 ${formatRmb(monthSpend)}（计划对照已关）`}
+            ? `每日「基础」只对照基础日计划；「专项」单独计入专项预算 · 本月合计净支出 ${formatRmb(monthSpend)}`
+            : `每日基础与专项分开显示 · 本月合计净支出 ${formatRmb(monthSpend)}（计划对照已关）`}
         </p>
 
         <div className="cal-weekdays" aria-hidden>
@@ -210,15 +212,16 @@ export function CalendarPage({ store }: Props) {
                 onClick={() => setSelectedDate(dateStr)}
                 aria-label={
                   planOn
-                    ? `${dateStr} 总支出${stat.total} 基础计划剩余${stat.remain}`
-                    : `${dateStr} 总支出${stat.total}`
+                    ? `${dateStr} 基础净支出${stat.used} 专项净支出${stat.special} 基础计划剩余${stat.remain}`
+                    : `${dateStr} 基础净支出${stat.used} 专项净支出${stat.special}`
                 }
                 aria-selected={isSel}
               >
                 <span className="cal-daynum">{format(d, 'd')}</span>
                 {showNums ? (
                   <>
-                    <span className="cal-spend">{compactYuan(stat.total)}</span>
+                    <span className="cal-spend">基{compactYuan(stat.used)}</span>
+                    {stat.special !== 0 && <span className="cal-special">专{compactYuan(stat.special)}</span>}
                     {planOn && (
                       <span className={`cal-remain ${stat.remain >= 0 ? 'pos' : 'neg'}`}>
                         {stat.remain >= 0
@@ -264,8 +267,12 @@ export function CalendarPage({ store }: Props) {
           ) : null}
           <div className={`stat-grid ${planOn ? 'section-gap' : ''}`}>
             <div className="stat-pill">
-              <div className="k">当日总净支出</div>
-              <div className="v">{formatRmb(selectedStats.total)}</div>
+              <div className="k">当日基础净支出</div>
+              <div className="v">{formatRmb(selectedStats.used)}</div>
+            </div>
+            <div className="stat-pill">
+              <div className="k">当日专项净支出</div>
+              <div className="v">{formatRmb(selectedStats.special)}</div>
             </div>
             {planOn ? (
               <div className="stat-pill">
@@ -286,6 +293,7 @@ export function CalendarPage({ store }: Props) {
               </div>
             )}
           </div>
+          <p className="hint section-gap">当日合计净支出 {formatRmb(selectedStats.total)}；专项不占用基础日计划。</p>
 
           {planOn && isSelectedSat && (
             <div className="section-gap">
