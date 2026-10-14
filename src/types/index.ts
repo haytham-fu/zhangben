@@ -180,6 +180,8 @@ export interface DailyFixedExpense {
   startDate: string;
   /** First day not charged. Kept as a tombstone for sync and audit. */
   stoppedOn?: string;
+  /** Calendar dates explicitly deleted by the user; never auto-create them again. */
+  skippedDates?: string[];
   updatedAt: string;
 }
 

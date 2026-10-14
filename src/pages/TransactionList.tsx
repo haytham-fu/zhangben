@@ -62,7 +62,7 @@ function dayHeaderLabel(dateStr: string): string {
 }
 
 export function TransactionList({ store }: Props) {
-  const { transactions, categoryMap, walletMap, wallets, categories, currentYm, deleteTransaction } = store;
+  const { transactions, categoryMap, walletMap, wallets, categories, currentYm, deleteTransaction, stopDailyFixedExpense } = store;
   const [ym, setYm] = useState(currentYm);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [payFilter, setPayFilter] = useState<PaymentMethod | 'all'>('all');
@@ -71,6 +71,7 @@ export function TransactionList({ store }: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [confirmDailyAction, setConfirmDailyAction] = useState<'day' | 'stop' | null>(null);
 
   const list = useMemo(() => {
     let txs = filterMonth(transactions, ym);
@@ -303,7 +304,7 @@ export function TransactionList({ store }: Props) {
 
       {selected && (
         <ModalPortal>
-        <div className="modal-backdrop" onClick={() => setSelected(null)} role="presentation">
+        <div className="modal-backdrop" onClick={() => { setSelected(null); setConfirmDailyAction(null); }} role="presentation">
           <div
             className="modal-sheet"
             onClick={(e) => e.stopPropagation()}
@@ -369,12 +370,37 @@ export function TransactionList({ store }: Props) {
               删除
             </button>}
             {selected.dailyFixedRuleId && (
-              <p className="hint">要修改或停止后续自动支出，请到「记账 → 支出 → 每日固定支出」。过去的记录会保留。</p>
+              <>
+                <button type="button" className="btn btn-danger btn-block" onClick={() => setConfirmDailyAction('day')}>
+                  只删除这一天
+                </button>
+                {(store.settings.dailyFixedExpenses ?? []).some((r) => r.id === selected.dailyFixedRuleId && !r.stoppedOn) && (
+                  <button type="button" className="btn btn-secondary btn-block" onClick={() => setConfirmDailyAction('stop')}>
+                    从今天起停止这一项
+                  </button>
+                )}
+                {confirmDailyAction && (
+                  <div className="grocery-summary-pill" role="group" aria-label="确认每日支出操作">
+                    <p className="hint">{confirmDailyAction === 'day'
+                      ? `删除 ${selected.date} 这笔记录，以后不会自动补回；其他日期继续自动计入。`
+                      : '从今天起停止自动计入；过去的记录保留。'}</p>
+                    <div className="chip-row">
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => {
+                        if (confirmDailyAction === 'day') deleteTransaction(selected.id);
+                        else stopDailyFixedExpense(selected.dailyFixedRuleId!);
+                        setConfirmDailyAction(null);
+                        setSelected(null);
+                      }}>确认{confirmDailyAction === 'day' ? '删除' : '停止'}</button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirmDailyAction(null)}>取消</button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <button
               type="button"
               className="btn btn-secondary btn-block"
-              onClick={() => setSelected(null)}
+              onClick={() => { setSelected(null); setConfirmDailyAction(null); }}
             >
               退出
             </button>

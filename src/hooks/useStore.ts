@@ -34,6 +34,7 @@ import {
   isPigWallet,
   PIG_WALLET_ID,
   reconcileSettledAcExpense,
+  reconcileDeletedDailyFixedExpense,
   settleClosedMonths,
   sourceAvail,
 } from '../utils/wallets';
@@ -298,7 +299,23 @@ export function useStore() {
     setState((s) => {
       const prev = s.transactions.find((t) => t.id === id);
       if (!prev) return s;
-      if (prev.dailyFixedRuleId) return s;
+      if (prev.dailyFixedRuleId) {
+        const ruleId = prev.dailyFixedRuleId;
+        const rules = s.settings.dailyFixedExpenses ?? [];
+        const rule = rules.find((r) => r.id === ruleId);
+        const settings = rule ? {
+          ...s.settings,
+          dailyFixedExpenses: rules.map((r) => r.id === ruleId
+            ? { ...r, skippedDates: [...new Set([...(r.skippedDates ?? []), prev.date])].sort(), updatedAt: new Date().toISOString() }
+            : r),
+        } : s.settings;
+        return {
+          ...s,
+          settings,
+          transactions: s.transactions.filter((t) => t.id !== id),
+          wallets: reconcileDeletedDailyFixedExpense(s.settings, s.wallets, prev),
+        };
+      }
       let wallets = s.wallets;
       if (isBudgetExpense(prev) && prev.walletId) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);

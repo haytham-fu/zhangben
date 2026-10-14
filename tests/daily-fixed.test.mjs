@@ -11,7 +11,7 @@ async function bundled(path) {
 const { materializeDailyFixed, mergeDailyFixedExpenses, normalizeDailyFixedExpenses } =
   await bundled('../src/utils/dailyFixed.ts');
 const { dayNetAll, dayNetBasic, monthBasicUsed } = await bundled('../src/utils/budget.ts');
-const { createPigWallet, settleClosedMonths } = await bundled('../src/utils/wallets.ts');
+const { createPigWallet, settleClosedMonths, reconcileDeletedDailyFixedExpense } = await bundled('../src/utils/wallets.ts');
 
 const rule = {
   id: 'rule-1', name: '空调日费', amountRmb: 10,
@@ -113,4 +113,38 @@ test('foreign-currency daily fixed expense preserves original price and counts R
   assert.equal(opened.transactions[0].rate, 0.86);
   assert.equal(dayNetBasic(opened.transactions, '2026-09-30', opts), 8.6);
   assert.equal(materializeDailyFixed(opened, '2026-09-30'), opened);
+});
+
+test('deleting one generated day does not regenerate it, while later days continue', () => {
+  const opened = materializeDailyFixed(state(), '2026-10-02');
+  const skipped = { ...rule, skippedDates: ['2026-10-01'], updatedAt: '2026-10-02T09:00:00.000Z' };
+  const removed = materializeDailyFixed({
+    ...opened,
+    settings: { ...opened.settings, dailyFixedExpenses: [skipped] },
+    transactions: opened.transactions.filter((tx) => tx.date !== '2026-10-01'),
+  }, '2026-10-03');
+  assert.equal(dayNetBasic(removed.transactions, '2026-10-01', opts), 0);
+  assert.equal(dayNetBasic(removed.transactions, '2026-10-02', opts), 10);
+  assert.equal(dayNetBasic(removed.transactions, '2026-10-03', opts), 10);
+  assert.equal(materializeDailyFixed(removed, '2026-10-03'), removed);
+  const [restored] = normalizeDailyFixedExpenses([skipped]);
+  assert.deepEqual(restored.skippedDates, ['2026-10-01']);
+});
+
+test('sync preserves skipped dates from both devices', () => {
+  const local = { ...rule, skippedDates: ['2026-10-01'], updatedAt: '2026-10-02T09:00:00.000Z' };
+  const remote = { ...rule, skippedDates: ['2026-10-02'], updatedAt: '2026-10-03T09:00:00.000Z' };
+  assert.deepEqual(mergeDailyFixedExpenses([local], [remote])[0].skippedDates,
+    ['2026-10-01', '2026-10-02']);
+});
+
+test('deleting a fixed expense from a settled month restores its pig balance', () => {
+  const before = state();
+  before.settings.basicBudget = 3500;
+  before.settings.specialBudget = 1500;
+  before.wallets = [createPigWallet()];
+  const closed = settleClosedMonths(materializeDailyFixed(before, '2026-10-02'), '2026-10');
+  const oldDay = closed.transactions.find((tx) => tx.date === '2026-09-30');
+  const nextWallets = reconcileDeletedDailyFixedExpense(closed.settings, closed.wallets, oldDay);
+  assert.equal(nextWallets[0].balance, closed.wallets[0].balance + 10);
 });

@@ -26,6 +26,7 @@ export function DailyFixedExpenseManager({ store, onBack }: Props) {
   const [categoryId, setCategoryId] = useState(choices.find((c) => c.id === 'ac')?.id ?? choices[0]?.id ?? 'ac');
   const [startDate, setStartDate] = useState(todayStr);
   const [feedback, setFeedback] = useState('');
+  const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   const chosen = choices.find((c) => c.id === categoryId);
 
   function clearForm() {
@@ -93,13 +94,22 @@ export function DailyFixedExpenseManager({ store, onBack }: Props) {
                     setCategoryId(rule.categoryId);
                     setFeedback('');
                   }}>修改</button>
-                  <button type="button" className="chip" onClick={() => {
-                    if (!confirm(`删除「${rule.name}」的每日固定支出？今天起不再自动计入，过去的记录会保留。`)) return;
-                    stopDailyFixedExpense(rule.id);
-                    if (editingId === rule.id) clearForm();
-                    setFeedback(`已停止「${rule.name}」，今天起不再自动计入`);
-                  }}>删除设置</button>
+                  <button type="button" className="chip" onClick={() => setConfirmStopId(rule.id)}>停止自动支出</button>
                 </div>
+                {confirmStopId === rule.id && (
+                  <div className="section-gap" role="group" aria-label={`确认停止${rule.name}`}>
+                    <p className="hint">今天起不再自动计入「{rule.name}」；以前的记录保留。</p>
+                    <div className="chip-row">
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => {
+                        stopDailyFixedExpense(rule.id);
+                        if (editingId === rule.id) clearForm();
+                        setConfirmStopId(null);
+                        setFeedback(`已停止「${rule.name}」，今天起不再计入`);
+                      }}>确认停止</button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirmStopId(null)}>取消</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

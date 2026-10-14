@@ -34,6 +34,9 @@ export function normalizeDailyFixedExpenses(raw: unknown): DailyFixedExpense[] {
       updatedAt: typeof r.updatedAt === 'string' && !Number.isNaN(Date.parse(r.updatedAt))
         ? r.updatedAt : `${r.startDate}T00:00:00.000Z`,
       stoppedOn: validDay(r.stoppedOn) ? r.stoppedOn : undefined,
+      skippedDates: Array.isArray(r.skippedDates)
+        ? [...new Set(r.skippedDates.filter(validDay))].sort()
+        : [],
     };
     byId.set(rule.id, rule);
   }
@@ -73,6 +76,10 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
   const kept = state.transactions.filter((tx) => {
     if (!tx.dailyFixedRuleId) return true;
     const rule = byId.get(tx.dailyFixedRuleId);
+    if (rule?.skippedDates?.includes(tx.date)) {
+      changed = true;
+      return false;
+    }
     if (rule?.stoppedOn && tx.date >= rule.stoppedOn) {
       changed = true;
       return false;
@@ -103,7 +110,7 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
       const date = format(day, 'yyyy-MM-dd');
       if (date > today || (last && date >= last)) break;
       const key = `${rule.id}:${date}`;
-      if (!seen.has(key)) {
+      if (!seen.has(key) && !rule.skippedDates?.includes(date)) {
         added.push(dailyFixedTransaction(rule, date));
         seen.add(key);
       }
@@ -121,9 +128,14 @@ export function mergeDailyFixedExpenses(
   const merged = new Map(local.map((rule) => [rule.id, rule]));
   for (const rule of remote) {
     const old = merged.get(rule.id);
+    const skippedDates = old
+      ? [...new Set([...(old.skippedDates ?? []), ...(rule.skippedDates ?? [])])].sort()
+      : rule.skippedDates;
     if (!old || rule.updatedAt > old.updatedAt ||
         (rule.updatedAt === old.updatedAt && !!rule.stoppedOn && !old.stoppedOn)) {
-      merged.set(rule.id, rule);
+      merged.set(rule.id, { ...rule, skippedDates });
+    } else if (skippedDates && skippedDates.length !== (old.skippedDates ?? []).length) {
+      merged.set(rule.id, { ...old, skippedDates });
     }
   }
   return [...merged.values()];

@@ -406,6 +406,23 @@ export function reconcileSettledAcExpense(
   return next;
 }
 
+/** Removing an auto-generated daily charge from a closed month adjusts its pig settlement once. */
+export function reconcileDeletedDailyFixedExpense(
+  settings: Settings, wallets: Wallet[], tx: Transaction,
+): Wallet[] {
+  const ym = normalizeTxDate(tx.date).slice(0, 7);
+  if (!settledMonthsOf(settings).includes(ym) ||
+      (!settings.includeSpecialInAdvice && tx.isSpecial)) return wallets;
+  const pigIdx = wallets.findIndex(isPigWallet);
+  if (pigIdx < 0) return wallets;
+  const amount = expenseInMonth(tx, ym);
+  if (amount <= 0) return wallets;
+  const next = [...wallets];
+  next[pigIdx] = applyTransferToWallet(wallets[pigIdx], 'in', amount,
+    'settle', `${ym} 每日支出记录删除调整`, ym);
+  return next;
+}
+
 /** Reconstruct user jars at the close of a past month, excluding later activity. */
 function userWalletsAtMonthEnd(wallets: Wallet[], txs: Transaction[], ym: string): Wallet[] {
   return wallets.map((wallet) => {
