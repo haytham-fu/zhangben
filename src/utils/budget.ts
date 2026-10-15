@@ -311,15 +311,15 @@ export function buildAdvice(
     { includeSpecial: settings.includeSpecialInAdvice });
   const money = (n: number) => `¥${Math.abs(n).toFixed(2)}`;
   const tips = [
-    `本月已过 ${s.elapsedDays}/${s.totalDays} 天；按生活费总预算 ${money(s.totalBudget)} 均匀分配，截至今天可用 ${money(s.pacedBudget)}，实际净支出 ${money(s.totalUsed)}。`,
-    s.paceDifference >= 0
-      ? `目前比预算进度少花 ${money(s.paceDifference)}；这是暂时的节奏盈余，不是月底最终结余。`
-      : `目前比预算进度多花 ${money(-s.paceDifference)}；接下来需放慢支出，才能回到月预算内。`,
-    `基础生活已用 ${money(s.basicUsed)} / ${money(settings.basicBudget)}；按每日计划累计 ${money(s.basicPlanned)}，${s.basicUsed <= s.basicPlanned ? `少花 ${money(s.basicPlanned - s.basicUsed)}` : `多花 ${money(s.basicUsed - s.basicPlanned)}`}。专项已用 ${money(s.specialUsed)} / ${money(settings.specialBudget)}。`,
+    `本月已过 ${s.elapsedDays}/${s.totalDays} 天。基础生活已用 ${money(s.basicUsed)} / ${money(settings.basicBudget)}；截至今天按每日计划可用 ${money(s.basicPlanned)}，${s.basicUsed <= s.basicPlanned ? `少花 ${money(s.basicPlanned - s.basicUsed)}` : `多花 ${money(s.basicUsed - s.basicPlanned)}`}。`,
+    `专项支出已用 ${money(s.specialUsed)} / ${money(settings.specialBudget)}；这是整月额度，不会占用每天的基础生活预算。`,
+    s.totalRemaining >= 0
+      ? `两类预算合计还剩 ${money(s.totalRemaining)}，这是按整月预算计算的余额，并非今天可用金额。`
+      : `两类预算合计已超 ${money(-s.totalRemaining)}，建议减少可推迟的专项开销。`,
     s.daysLeft > 0
-      ? s.totalRemaining >= 0
-        ? `本月还剩 ${money(s.totalRemaining)}，余下 ${s.daysLeft} 天平均每天可用约 ${money(s.totalRemaining / s.daysLeft)}（基础与专项合计）。`
-        : `本月预算已超 ${money(-s.totalRemaining)}；余下 ${s.daysLeft} 天，建议优先保障吃饭和交通，暂停可推迟的专项购买。`
+      ? settings.basicBudget - s.basicUsed >= 0
+        ? `基础生活还剩 ${money(settings.basicBudget - s.basicUsed)}，余下 ${s.daysLeft} 天平均每天可用约 ${money((settings.basicBudget - s.basicUsed) / s.daysLeft)}；专项剩额单独看。`
+        : `基础生活已超 ${money(s.basicUsed - settings.basicBudget)}；余下 ${s.daysLeft} 天，建议优先保障吃饭和交通。`
       : s.totalRemaining >= 0
         ? `本月结束时预计结余 ${money(s.totalRemaining)}。`
         : `本月结束时预计超支 ${money(-s.totalRemaining)}。`,

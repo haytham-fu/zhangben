@@ -60,7 +60,7 @@ export function CalendarPage({ store }: Props) {
   const pace = useMemo(() => monthPaceSnapshot(transactions, settings, currentYm, today, opts),
     [transactions, settings, currentYm, todayStr, opts.includeSpecial]);
   const hasBudget = pace.totalBudget > 0;
-  const difference = planOn ? pace.paceDifference : pace.totalRemaining;
+  const difference = pace.totalRemaining;
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -132,15 +132,20 @@ export function CalendarPage({ store }: Props) {
       <GlassCard title="截至今天 · 生活费" className="cal-pace-card">
         {hasBudget ? (
           <>
-            <p className="hint cal-pace-caption">{planOn ? `本月第 ${pace.elapsedDays}/${pace.totalDays} 天 · 对照生活费预算进度` : '计划对照已关闭 · 对照本月完整预算'}</p>
+            <p className="hint cal-pace-caption">本月第 {pace.elapsedDays}/{pace.totalDays} 天 · 基础与专项分别核算</p>
             <div className={`cal-pace-value ${difference < 0 ? 'is-over' : 'is-surplus'}`}>
               <span>{difference < 0 ? '超支' : '盈余'}</span>
               <strong>{formatRmb(Math.abs(difference))}</strong>
             </div>
             <p className="hint cal-pace-detail">
-              {planOn ? `截至今天计划可用 ${formatRmb(pace.pacedBudget)}` : `本月总预算 ${formatRmb(pace.totalBudget)}`} · 实际净支出 {formatRmb(pace.totalUsed)}
+              本月总预算 {formatRmb(pace.totalBudget)} · 截至今天实际净支出 {formatRmb(pace.totalUsed)}
             </p>
-            {planOn && <p className="hint cal-pace-note">按基础＋专项月预算平均分配到今天；月底结余仍以整月实际支出为准。</p>}
+            <div className="cal-budget-split">
+              <div><span>基础生活 · 每日计划</span><strong>{formatRmb(pace.basicUsed)} / {formatRmb(settings.basicBudget)}</strong>
+                {planOn && <small>截至今天计划 {formatRmb(pace.basicPlanned)} · {pace.basicUsed <= pace.basicPlanned ? '少花' : '多花'} {formatRmb(Math.abs(pace.basicPlanned - pace.basicUsed))}</small>}</div>
+              <div><span>专项支出 · 整月额度</span><strong>{formatRmb(pace.specialUsed)} / {formatRmb(settings.specialBudget)}</strong>
+                <small>{settings.specialBudget - pace.specialUsed >= 0 ? '还剩' : '已超'} {formatRmb(Math.abs(settings.specialBudget - pace.specialUsed))} · 不占每日基础预算</small></div>
+            </div>
           </>
         ) : <p className="hint">设置生活费预算后，这里会显示截至今天的盈余或超支。</p>}
       </GlassCard>

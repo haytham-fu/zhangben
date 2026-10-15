@@ -8,7 +8,7 @@ async function bundled(path) {
   return import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
 }
 
-const { materializeDailyFixed, mergeDailyFixedExpenses, normalizeDailyFixedExpenses } =
+const { materializeDailyFixed, mergeDailyFixedExpenses, normalizeDailyFixedExpenses, nextScheduledChargeDate } =
   await bundled('../src/utils/dailyFixed.ts');
 const { dayNetAll, dayNetBasic, monthBasicUsed } = await bundled('../src/utils/budget.ts');
 const { createPigWallet, settleClosedMonths, reconcileDeletedDailyFixedExpense } = await bundled('../src/utils/wallets.ts');
@@ -147,4 +147,31 @@ test('deleting a fixed expense from a settled month restores its pig balance', (
   const oldDay = closed.transactions.find((tx) => tx.date === '2026-09-30');
   const nextWallets = reconcileDeletedDailyFixedExpense(closed.settings, closed.wallets, oldDay);
   assert.equal(nextWallets[0].balance, closed.wallets[0].balance + 10);
+});
+
+test('weekly rule charges once each week, including across months', () => {
+  const weekly = { ...rule, frequency: 'weekly', startDate: '2026-09-29' };
+  const opened = materializeDailyFixed(state([weekly]), '2026-10-14');
+  assert.deepEqual(opened.transactions.map((t) => t.date), ['2026-10-13', '2026-10-06', '2026-09-29']);
+  assert.equal(nextScheduledChargeDate(weekly, '2026-10-14'), '2026-10-20');
+  assert.equal(materializeDailyFixed(opened, '2026-10-14'), opened);
+});
+
+test('monthly rule on the 31st uses month-end and counts only its chosen budget', () => {
+  const monthly = { ...rule, frequency: 'monthly', startDate: '2026-01-31', bucket: 'special', categoryId: 'sundries' };
+  const opened = materializeDailyFixed(state([monthly]), '2026-03-31');
+  assert.deepEqual(opened.transactions.map((t) => t.date), ['2026-03-31', '2026-02-28', '2026-01-31']);
+  assert.equal(dayNetBasic(opened.transactions, '2026-02-28', opts), 0);
+  assert.equal(dayNetAll(opened.transactions, '2026-02-28', opts), 10);
+});
+
+test('edited schedule keeps past rows and does not charge before its new effective date', () => {
+  const opened = materializeDailyFixed(state(), '2026-10-02');
+  const edited = { ...rule, frequency: 'monthly', startDate: '2026-10-20', effectiveFrom: '2026-10-02',
+    updatedAt: '2026-10-02T09:00:00.000Z' };
+  const updated = materializeDailyFixed({ ...opened, settings: { ...opened.settings, dailyFixedExpenses: [edited] } }, '2026-10-02');
+  assert.deepEqual(updated.transactions.map((t) => t.date), ['2026-10-01', '2026-09-30', '2026-09-29']);
+  const future = materializeDailyFixed(updated, '2026-10-20');
+  assert.equal(dayNetAll(future.transactions, '2026-10-20', opts), 10);
+  assert.equal(dayNetAll(future.transactions, '2026-10-03', opts), 0);
 });

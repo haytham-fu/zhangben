@@ -1,4 +1,4 @@
-import { addDays, format, isValid, parseISO } from 'date-fns';
+import { addDays, differenceInCalendarDays, endOfMonth, format, isValid, parseISO } from 'date-fns';
 import type { AppState, DailyFixedExpense, Transaction } from '../types';
 import { isCurrency } from './currency';
 import { roundMoney } from './grocery';
@@ -31,6 +31,9 @@ export function normalizeDailyFixedExpenses(raw: unknown): DailyFixedExpense[] {
       categoryId: r.categoryId.trim().slice(0, 80),
       bucket: r.bucket === 'special' ? 'special' : 'basic',
       startDate: r.startDate,
+      frequency: r.frequency === 'weekly' || r.frequency === 'monthly' ? r.frequency : 'daily',
+      effectiveFrom: validDay(r.effectiveFrom) && r.effectiveFrom >= r.startDate
+        ? r.effectiveFrom : undefined,
       updatedAt: typeof r.updatedAt === 'string' && !Number.isNaN(Date.parse(r.updatedAt))
         ? r.updatedAt : `${r.startDate}T00:00:00.000Z`,
       stoppedOn: validDay(r.stoppedOn) ? r.stoppedOn : undefined,
@@ -41,6 +44,30 @@ export function normalizeDailyFixedExpenses(raw: unknown): DailyFixedExpense[] {
     byId.set(rule.id, rule);
   }
   return [...byId.values()];
+}
+
+export function isScheduledChargeDay(rule: DailyFixedExpense, day: string): boolean {
+  if (!validDay(day) || day < rule.startDate || (rule.effectiveFrom && day < rule.effectiveFrom) ||
+      (rule.stoppedOn && day >= rule.stoppedOn) || rule.skippedDates?.includes(day)) return false;
+  const frequency = rule.frequency ?? 'daily';
+  if (frequency === 'daily') return true;
+  if (frequency === 'weekly') {
+    return differenceInCalendarDays(parseISO(day), parseISO(rule.startDate)) % 7 === 0;
+  }
+  const dueDay = Number(rule.startDate.slice(8));
+  const monthEnd = Number(format(endOfMonth(parseISO(day)), 'dd'));
+  return Number(day.slice(8)) === Math.min(dueDay, monthEnd);
+}
+
+export function nextScheduledChargeDate(rule: DailyFixedExpense, from: string): string | null {
+  if (!validDay(from)) return null;
+  let day = parseISO(from > rule.startDate ? from : rule.startDate);
+  for (let i = 0; i < 63; i += 1) {
+    const date = format(day, 'yyyy-MM-dd');
+    if (isScheduledChargeDay(rule, date)) return date;
+    day = addDays(day, 1);
+  }
+  return null;
 }
 
 export function dailyFixedTransaction(rule: DailyFixedExpense, day: string): Transaction {
@@ -94,13 +121,15 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
   }).map((tx) => {
     if (!tx.dailyFixedRuleId || tx.date !== today) return tx;
     const rule = byId.get(tx.dailyFixedRuleId);
-    if (!rule || rule.startDate > today || rule.stoppedOn) return tx;
+    if (!rule) return tx;
+    if (rule.stoppedOn || rule.startDate > today) { changed = true; return null; }
+    if (!isScheduledChargeDay(rule, today)) { changed = true; return null; }
     if (tx.amountRmb === rule.amountRmb && tx.amount === (rule.amount ?? rule.amountRmb) &&
         tx.currency === (rule.currency ?? 'RMB') && tx.rate === (rule.rate ?? 1) && tx.categoryId === rule.categoryId &&
         tx.bucket === rule.bucket && tx.note === rule.name) return tx;
     changed = true;
     return dailyFixedTransaction(rule, today);
-  });
+  }).filter((tx): tx is Transaction => tx !== null);
   const added: Transaction[] = [];
   for (const rule of rules) {
     if (!validDay(rule.startDate) || rule.startDate > today) continue;
@@ -110,7 +139,7 @@ export function materializeDailyFixed(state: AppState, today: string): AppState 
       const date = format(day, 'yyyy-MM-dd');
       if (date > today || (last && date >= last)) break;
       const key = `${rule.id}:${date}`;
-      if (!seen.has(key) && !rule.skippedDates?.includes(date)) {
+      if (!seen.has(key) && isScheduledChargeDay(rule, date)) {
         added.push(dailyFixedTransaction(rule, date));
         seen.add(key);
       }

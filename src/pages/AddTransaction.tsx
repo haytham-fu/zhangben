@@ -627,7 +627,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               <h2 className="glass-title">选择支出类型</h2>
               <div className="modal-sheet-body">
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setMode('fixed')}>
-                ⏱️ 每日固定支出 · 设置／删除
+                ⏱️ 设置／删除定时支出
               </button>
               <p className="hint">每天自动计入，可随时停止。</p>
               <p className="sheet-section-label">基础生活</p>

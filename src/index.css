@@ -1717,6 +1717,20 @@ html[data-modal-open="true"][data-bg-motion="dynamic"] #root::before {
 .cal-pace-detail { margin: 10px 0 0; line-height: 1.55; }
 .cal-pace-note { margin: 5px 0 0; font-size: 0.76rem; line-height: 1.5; }
 
+.cal-budget-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 14px; }
+.cal-budget-split > div { min-width: 0; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.36); }
+.cal-budget-split span, .cal-budget-split strong, .cal-budget-split small { display: block; overflow-wrap: anywhere; }
+.cal-budget-split span { font-size: .78rem; color: var(--text-muted); }
+.cal-budget-split strong { margin-top: 5px; font-size: .92rem; }
+.cal-budget-split small { margin-top: 5px; color: var(--text-muted); line-height: 1.5; }
+.fixed-rule-list { display: grid; gap: 10px; }
+.fixed-rule-card { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 14px; border: 1px solid rgba(255,255,255,.7); border-radius: 20px; background: rgba(255,255,255,.38); text-align: left; color: inherit; cursor: pointer; }
+.fixed-rule-main, .fixed-rule-money { min-width: 0; display: grid; gap: 4px; }
+.fixed-rule-main strong, .fixed-rule-main span { overflow-wrap: anywhere; }
+.fixed-rule-main span, .fixed-rule-money small { color: var(--text-muted); font-size: .78rem; }
+.fixed-rule-money { text-align: right; flex: 0 0 auto; font-weight: 750; }
+@media (max-width: 390px) { .cal-budget-split { grid-template-columns: 1fr; } }
+
 .cal-nav {
   display: flex;
   align-items: center;

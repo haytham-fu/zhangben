@@ -322,7 +322,7 @@ export function TransactionList({ store }: Props) {
               {selected.date} · {selected.bucket === 'special' ? '专项' : '基础'}
               {selected.isSpecial ? ' · 请客特例' : ''}
               {selected.isMonthly ? ' · 月度支出' : ''}
-              {selected.dailyFixedRuleId ? ' · 每日固定支出自动计入' : ''}
+              {selected.dailyFixedRuleId ? ' · 定时支出自动计入' : ''}
               {selected.kind === 'topup' ? ' · 充值不计支出，可跨月使用' : ''}
               {['ac', 'sundries'].includes(selected.categoryId) && (selected.spreadDays ?? 1) > 1
                 ? ` · 从记录日起分摊 ${selected.spreadDays} 天`

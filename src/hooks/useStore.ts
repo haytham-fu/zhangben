@@ -24,7 +24,7 @@ import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount, isBu
 import { localDateStr, localMonthKey, normalizeTxDate } from '../utils/dates';
 import { mergeProfileSettings, mergeProfileTransactions, type LedgerProfilePack } from '../utils/profile';
 import { mergeSyncIntoLocal, type SyncImportMode } from '../utils/sync';
-import { dailyFixedTransaction, materializeDailyFixed } from '../utils/dailyFixed';
+import { materializeDailyFixed } from '../utils/dailyFixed';
 import {
   applyTransferToWallet,
   createWallet,
@@ -80,6 +80,7 @@ export type DailyFixedInput = Pick<DailyFixedExpense, 'name' | 'categoryId' | 'b
   amount: number;
   currency: Currency;
   rate: number;
+  frequency: 'daily' | 'weekly' | 'monthly';
 };
 
 function mapWalletsSpend(wallets: Wallet[], walletId: string | null | undefined, amountRmb: number): Wallet[] {
@@ -177,10 +178,11 @@ export function useStore() {
     }, today));
   }, []);
 
-  const updateDailyFixedExpense = useCallback((id: string, input: DailyFixedInput) => {
+  const updateDailyFixedExpense = useCallback((id: string, input: DailyFixedInput, startDate: string) => {
     const today = localDateStr();
     const amountRmb = toRmbWithRate(input.amount, input.rate);
-    if (!input.name.trim() || !Number.isFinite(amountRmb) ||
+    if (startDate < today || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+        !input.name.trim() || !Number.isFinite(amountRmb) ||
         amountRmb < 0.01 || amountRmb > 1_000_000 ||
         !Number.isFinite(input.rate) || input.rate <= 0) return;
     setState((s) => {
@@ -190,6 +192,8 @@ export function useStore() {
         ...current, ...input,
         name: input.name.trim().slice(0, 40),
         amountRmb,
+        startDate,
+        effectiveFrom: today,
         updatedAt: new Date().toISOString(),
       };
       return materializeDailyFixed({
@@ -198,8 +202,7 @@ export function useStore() {
           ...s.settings,
           dailyFixedExpenses: (s.settings.dailyFixedExpenses ?? []).map((r) => r.id === id ? next : r),
         },
-        transactions: s.transactions.map((tx) => tx.dailyFixedRuleId === id && tx.date === today
-          ? dailyFixedTransaction(next, today) : tx),
+        transactions: s.transactions,
       }, today);
     });
   }, []);

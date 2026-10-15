@@ -170,8 +170,12 @@ export interface Transaction {
 export interface DailyFixedExpense {
   id: string;
   name: string;
-  /** Fixed amount in RMB for each calendar day. */
+  /** RMB amount for each scheduled charge. */
   amountRmb: number;
+  /** Legacy records without frequency remain daily. */
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  /** New schedule takes effect from this day; older generated charges stay unchanged. */
+  effectiveFrom?: string;
   amount?: number;
   currency?: Currency;
   rate?: number;
