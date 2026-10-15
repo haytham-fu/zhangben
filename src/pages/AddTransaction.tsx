@@ -629,7 +629,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setMode('fixed')}>
                 ⏱️ 设置／删除定时支出
               </button>
-              <p className="hint">每天自动计入，可随时停止。</p>
+              <p className="hint">可设每天、每周或每月自动记录，随时编辑或删除。</p>
               <p className="sheet-section-label">基础生活</p>
               <div className="cat-grid">
                 {expenseCats
