@@ -12,6 +12,9 @@ import type {
 import { expenseInMonth, filterMonth, isBudgetExpense, monthBasicUsed, monthSpecialUsed } from './budget';
 import { roundMoney } from './grocery';
 import { localMonthKey, normalizeTxDate } from './dates';
+import { PIG_WALLET_ID } from './walletConstants';
+
+export { PIG_WALLET_ID } from './walletConstants';
 
 export const WALLET_COLORS = [
   '#3B82F6',
@@ -48,7 +51,6 @@ export const CUTE_WALLET_NAMES = [
 ] as const;
 
 /** Fixed id for the system 「小钱猪」 jar */
-export const PIG_WALLET_ID = 'system-pig';
 export const PIG_WALLET_NAME = '小钱猪';
 export const PIG_WALLET_COLOR = '#F472B6';
 

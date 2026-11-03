@@ -10,6 +10,7 @@ import {
 } from 'date-fns';
 import type { SatMode, Settings, Transaction } from '../types';
 import { normalizeTxDate, parseLocalDate } from './dates';
+import { PIG_WALLET_ID } from './walletConstants';
 
 export function monthKey(date: Date | string): string {
   const d = typeof date === 'string' ? parseLocalDate(date) : date;
@@ -49,6 +50,11 @@ export function isBudgetExpense(tx: Transaction): boolean {
   return tx.type === 'expense' && tx.kind !== 'topup' && !tx.isGroceryPurchase;
 }
 
+/** 小钱猪属于往月结余，使用时不再占用本月基础或专项预算。 */
+export function isBudgetTrackedExpense(tx: Transaction): boolean {
+  return isBudgetExpense(tx) && tx.walletId !== PIG_WALLET_ID;
+}
+
 export function isBudgetIncome(tx: Transaction): boolean {
   return tx.type === 'income';
 }
@@ -58,12 +64,12 @@ export function filterMonth(txs: Transaction[], ym: string): Transaction[] {
 }
 
 export function isSpreadAc(tx: Transaction): boolean {
-  return tx.categoryId === 'ac' && isBudgetExpense(tx) &&
+  return tx.categoryId === 'ac' && isBudgetTrackedExpense(tx) &&
     Number.isInteger(tx.spreadDays) && (tx.spreadDays ?? 0) > 1 && (tx.spreadDays ?? 0) <= 365;
 }
 
 export function isSpreadSundry(tx: Transaction): boolean {
-  return tx.categoryId === 'sundries' && isBudgetExpense(tx) &&
+  return tx.categoryId === 'sundries' && isBudgetTrackedExpense(tx) &&
     Number.isInteger(tx.spreadDays) && (tx.spreadDays ?? 0) > 1 && (tx.spreadDays ?? 0) <= 365;
 }
 
@@ -73,7 +79,8 @@ export function isSpreadExpense(tx: Transaction): boolean {
 
 /** Exact cent allocation: e.g. ¥100 / 3 = 33.34 + 33.33 + 33.33. */
 export function expenseOnDate(tx: Transaction, dateStr: string): number {
-  if (!isBudgetExpense(tx)) return 0;
+  if (!isBudgetTrackedExpense(tx)) return 0;
+  if (tx.bucket === 'special') return 0;
   const date = normalizeTxDate(dateStr);
   if (!isSpreadExpense(tx)) return normalizeTxDate(tx.date) === date ? tx.amountRmb : 0;
   const offset = differenceInCalendarDays(parseLocalDate(date), parseLocalDate(tx.date));
@@ -85,7 +92,8 @@ export function expenseOnDate(tx: Transaction, dateStr: string): number {
 }
 
 export function expenseInMonth(tx: Transaction, ym: string): number {
-  if (!isBudgetExpense(tx)) return 0;
+  if (!isBudgetTrackedExpense(tx)) return 0;
+  if (tx.bucket === 'special') return normalizeTxDate(tx.date).startsWith(ym) ? tx.amountRmb : 0;
   if (!isSpreadExpense(tx)) return normalizeTxDate(tx.date).startsWith(ym) ? tx.amountRmb : 0;
   const start = parseLocalDate(tx.date);
   let cents = 0;
@@ -117,7 +125,7 @@ export function netBasicSpend(
   for (const t of txs) {
     if (t.bucket !== 'basic') continue;
     if (!opts.includeSpecial && t.isSpecial) continue;
-    if (isBudgetExpense(t)) sum += t.amountRmb;
+    if (isBudgetTrackedExpense(t)) sum += t.amountRmb;
     else if (isBudgetIncome(t)) sum -= t.amountRmb;
   }
   return Math.round(sum * 100) / 100;
@@ -128,7 +136,7 @@ export function specialSpend(txs: Transaction[], opts: { includeSpecial: boolean
   for (const t of txs) {
     if (t.bucket !== 'special') continue;
     if (!opts.includeSpecial && t.isSpecial) continue;
-    if (isBudgetExpense(t)) sum += t.amountRmb;
+    if (isBudgetTrackedExpense(t)) sum += t.amountRmb;
     else if (isBudgetIncome(t)) sum -= t.amountRmb;
   }
   return Math.round(sum * 100) / 100;
@@ -257,15 +265,13 @@ export function monthPaceSnapshot(
   const dates = through ? eachDayOfInterval({ start, end: through }) : [];
   const opening = monthOpeningUsed(settings, ym);
   let basicCents = Math.round(opening.basicUsed * 100);
-  let specialCents = Math.round(opening.specialUsed * 100);
   for (const date of dates) {
     const day = format(date, 'yyyy-MM-dd');
     basicCents += Math.round(dayNetBasic(txs, day, opts) * 100);
-    specialCents += Math.round((dayNetAll(txs, day, opts) - dayNetBasic(txs, day, opts)) * 100);
   }
   const basicUsed = basicCents / 100;
-  const specialUsed = specialCents / 100;
-  const totalUsed = (basicCents + specialCents) / 100;
+  const specialUsed = monthSpecialUsed(txs, settings, ym, opts);
+  const totalUsed = Math.round((basicUsed + specialUsed) * 100) / 100;
   const totalBudget = settings.basicBudget + settings.specialBudget;
   const totalDays = eachDayOfInterval({ start, end }).length;
   const elapsedDays = dates.length;

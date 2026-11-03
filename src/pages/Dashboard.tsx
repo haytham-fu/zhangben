@@ -10,13 +10,9 @@ import {
   budgetStatus,
   buildAdvice,
   dailyStatus,
-  dayNetAll,
-  dayNetSpecial,
   expenseInMonth,
-  expenseOnDate,
   getSatMode,
   isBudgetExpense,
-  isSpreadSundry,
   weekdayLabel,
 } from '../utils/budget';
 import { formatRmb } from '../utils/currency';
@@ -36,10 +32,6 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
     : false);
   const opts = { includeSpecial: settings.includeSpecialInAdvice };
   const { basicUsed, specialUsed, totalBudget, totalUsed, totalRemain, todayUsed, todayPlan } = monthStats;
-  const todayTotalUsed = dayNetAll(transactions, todayStr, opts);
-  const todaySpecialUsed = dayNetSpecial(transactions, todayStr, opts);
-  const todaySundryUsed = transactions.filter(isSpreadSundry)
-    .reduce((sum, tx) => sum + expenseOnDate(tx, todayStr), 0);
   const isSat = new Date().getDay() === 6;
   const satMode = getSatMode(todayStr, settings);
   const advice = planUseful && budgetsSet
@@ -92,15 +84,8 @@ export function Dashboard({ store, onOpenTx, adviceAnimated = true }: Props) {
             <div className="k">今日基础净支出</div>
             <div className="v">{formatRmb(todayUsed)}</div>
           </div>
-          <div className="stat-pill">
-            <div className="k">今日专项净支出</div>
-            <div className="v">{formatRmb(todaySpecialUsed)}</div>
-          </div>
         </div>
-        <p className="hint section-gap">今日合计 {formatRmb(todayTotalUsed)}；专项只计入专项预算，不占用基础日计划。</p>
-        {todaySundryUsed > 0 && (
-          <p className="hint section-gap">今日总支出已含日用品分摊 {formatRmb(todaySundryUsed)}；日用品计入专项，基础日计划仍单独对照。</p>
-        )}
+        <p className="hint section-gap">每日只对照基础生活计划；专项支出在本月额度中按实际金额累计。</p>
         {planUseful && isSat && (
           <div className="section-gap">
             <p className="hint" style={{ marginBottom: 8 }}>

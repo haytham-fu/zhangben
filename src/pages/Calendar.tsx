@@ -17,16 +17,16 @@ import { TransactionItem } from '../components/TransactionItem';
 import type { Store } from '../hooks/useStore';
 import {
   dailyStatus,
+  budgetStatus,
   dayNetBasic,
-  dayNetSpecial,
-  dayNetAll,
   expenseOnDate,
   dayTxCount,
   getDailyPlanAmount,
   getSatMode,
   isSpreadAc,
-  isSpreadSundry,
+  monthBasicUsed,
   monthPaceSnapshot,
+  monthSpecialUsed,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
@@ -59,8 +59,11 @@ export function CalendarPage({ store }: Props) {
   const today = parseLocalDate(todayStr);
   const pace = useMemo(() => monthPaceSnapshot(transactions, settings, currentYm, today, opts),
     [transactions, settings, currentYm, todayStr, opts.includeSpecial]);
-  const hasBudget = pace.totalBudget > 0;
-  const difference = pace.totalRemaining;
+  const hasBudget = settings.basicBudget > 0;
+  const difference = planOn
+    ? pace.basicPlanned - pace.basicUsed
+    : settings.basicBudget - pace.basicUsed;
+  const specialMonthUsed = monthSpecialUsed(transactions, settings, currentYm, { includeSpecial: true });
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -78,19 +81,16 @@ export function CalendarPage({ store }: Props) {
   const dayStats = useMemo(() => {
     const map = new Map<
       string,
-      { used: number; special: number; total: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
+      { used: number; plan: number; remain: number; status: BudgetStatus; txCount: number }
     >();
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
-      // The daily plan is basic-only; show special spending separately.
       const used = dayNetBasic(transactions, dateStr, opts);
-      const special = dayNetSpecial(transactions, dateStr, opts);
-      const total = dayNetAll(transactions, dateStr, opts);
       const plan = getDailyPlanAmount(dateStr, settings);
       const remain = Math.round((plan - used) * 100) / 100;
       const status = planOn ? dailyStatus(Math.max(0, used), plan) : 'safe';
       const txCount = dayTxCount(transactions, dateStr);
-      map.set(dateStr, { used, special, total, plan, remain, status, txCount });
+      map.set(dateStr, { used, plan, remain, status, txCount });
     }
     return map;
     // monthStats.txCount forces recompute when any tx is added/removed
@@ -108,46 +108,40 @@ export function CalendarPage({ store }: Props) {
         .map((tx) => ({ tx, amount: expenseOnDate(tx, selected) }))
         .filter(({ amount }) => amount > 0)
     : [];
-  const selectedSundryAllocations = selected
-    ? transactions
-        .filter(isSpreadSundry)
-        .map((tx) => ({ tx, amount: expenseOnDate(tx, selected) }))
-        .filter(({ amount }) => amount > 0)
-    : [];
-
   const isSelectedSat = selected ? getDay(parseLocalDate(selected)) === 6 : false;
   const satMode = selected ? getSatMode(selected, settings) : settings.defaultSatMode;
 
-  const monthSpend = useMemo(() => {
-    let sum = 0;
-    for (const d of days) {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      sum += dayNetAll(transactions, dateStr, opts);
-    }
-    return Math.round(sum * 100) / 100;
-  }, [days, transactions, opts.includeSpecial]);
+  const monthSpend = monthBasicUsed(transactions, settings, currentYm, opts) + specialMonthUsed;
 
   return (
     <>
-      <GlassCard title="截至今天 · 生活费" className="cal-pace-card">
+      <GlassCard title="基础生活 · 每日计划" className="cal-pace-card">
         {hasBudget ? (
           <>
-            <p className="hint cal-pace-caption">本月第 {pace.elapsedDays}/{pace.totalDays} 天 · 基础与专项分别核算</p>
+            <p className="hint cal-pace-caption">{planOn ? `本月第 ${pace.elapsedDays}/${pace.totalDays} 天 · 按基础日计划核对` : '每日计划对照已关闭 · 显示基础生活月预算'}</p>
             <div className={`cal-pace-value ${difference < 0 ? 'is-over' : 'is-surplus'}`}>
-              <span>{difference < 0 ? '超支' : '盈余'}</span>
+              <span>{difference < 0 ? (planOn ? '超出计划' : '月预算超支') : (planOn ? '计划结余' : '月预算剩余')}</span>
               <strong>{formatRmb(Math.abs(difference))}</strong>
             </div>
             <p className="hint cal-pace-detail">
-              本月总预算 {formatRmb(pace.totalBudget)} · 截至今天实际净支出 {formatRmb(pace.totalUsed)}
+              基础生活已用 {formatRmb(pace.basicUsed)} / 月预算 {formatRmb(settings.basicBudget)}
             </p>
-            <div className="cal-budget-split">
-              <div><span>基础生活 · 每日计划</span><strong>{formatRmb(pace.basicUsed)} / {formatRmb(settings.basicBudget)}</strong>
-                {planOn && <small>截至今天计划 {formatRmb(pace.basicPlanned)} · {pace.basicUsed <= pace.basicPlanned ? '少花' : '多花'} {formatRmb(Math.abs(pace.basicPlanned - pace.basicUsed))}</small>}</div>
-              <div><span>专项支出 · 整月额度</span><strong>{formatRmb(pace.specialUsed)} / {formatRmb(settings.specialBudget)}</strong>
-                <small>{settings.specialBudget - pace.specialUsed >= 0 ? '还剩' : '已超'} {formatRmb(Math.abs(settings.specialBudget - pace.specialUsed))} · 不占每日基础预算</small></div>
-            </div>
+            {planOn && <p className="hint cal-pace-note">截至今天基础日计划累计 {formatRmb(pace.basicPlanned)}；专项支出不计入每日计划。</p>}
           </>
-        ) : <p className="hint">设置生活费预算后，这里会显示截至今天的盈余或超支。</p>}
+        ) : <p className="hint">设置基础生活月预算后，这里会显示基础预算使用情况。</p>}
+      </GlassCard>
+      <GlassCard title="专项支出 · 本月额度" className="cal-pace-card">
+        {settings.specialBudget > 0 ? (
+          <>
+            <p className="hint cal-pace-caption">整月额度独立统计，不分摊到每日预算</p>
+            <ProgressBar
+              label="1500 专项"
+              used={specialMonthUsed}
+              budget={settings.specialBudget}
+              status={budgetStatus(specialMonthUsed, settings.specialBudget)}
+            />
+          </>
+        ) : <p className="hint">在预算设置中填写专项月额度后，这里会单独显示使用进度。</p>}
       </GlassCard>
       <GlassCard
         title="日历"
@@ -175,8 +169,8 @@ export function CalendarPage({ store }: Props) {
       >
         <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
           {planOn
-            ? `每日「基础」只对照基础日计划；「专项」单独计入专项预算 · 本月合计净支出 ${formatRmb(monthSpend)}`
-            : `每日基础与专项分开显示 · 本月合计净支出 ${formatRmb(monthSpend)}（计划对照已关）`}
+            ? `每日只对照基础生活计划；专项只在月度额度中按实际金额累计 · 本月记账合计 ${formatRmb(monthSpend)}`
+            : `每日只显示基础生活支出 · 专项在月度额度单独累计 · 本月记账合计 ${formatRmb(monthSpend)}（计划对照已关）`}
         </p>
 
         <div className="cal-weekdays" aria-hidden>
@@ -198,7 +192,7 @@ export function CalendarPage({ store }: Props) {
             const isToday = dateKey === todayStr;
             const isFuture = dateKey > todayStr;
             const isSel = selected === dateKey;
-            const showNums = !isFuture || stat.total !== 0 || stat.txCount > 0;
+            const showNums = !isFuture || stat.used !== 0 || stat.txCount > 0;
             return (
               <button
                 key={dateStr}
@@ -217,8 +211,8 @@ export function CalendarPage({ store }: Props) {
                 onClick={() => setSelectedDate(dateStr)}
                 aria-label={
                   planOn
-                    ? `${dateStr} 基础净支出${stat.used} 专项净支出${stat.special} 基础计划剩余${stat.remain}`
-                    : `${dateStr} 基础净支出${stat.used} 专项净支出${stat.special}`
+                    ? `${dateStr} 基础净支出${stat.used} 基础计划剩余${stat.remain}`
+                    : `${dateStr} 基础净支出${stat.used}`
                 }
                 aria-selected={isSel}
               >
@@ -226,7 +220,6 @@ export function CalendarPage({ store }: Props) {
                 {showNums ? (
                   <>
                     <span className="cal-spend">基{compactYuan(stat.used)}</span>
-                    {stat.special !== 0 && <span className="cal-special">专{compactYuan(stat.special)}</span>}
                     {planOn && (
                       <span className={`cal-remain ${stat.remain >= 0 ? 'pos' : 'neg'}`}>
                         {stat.remain >= 0
@@ -275,10 +268,6 @@ export function CalendarPage({ store }: Props) {
               <div className="k">当日基础净支出</div>
               <div className="v">{formatRmb(selectedStats.used)}</div>
             </div>
-            <div className="stat-pill">
-              <div className="k">当日专项净支出</div>
-              <div className="v">{formatRmb(selectedStats.special)}</div>
-            </div>
             {planOn ? (
               <div className="stat-pill">
                 <div className="k">{selectedStats.remain >= 0 ? '剩余额度' : '超支金额'}</div>
@@ -298,7 +287,7 @@ export function CalendarPage({ store }: Props) {
               </div>
             )}
           </div>
-          <p className="hint section-gap">当日合计净支出 {formatRmb(selectedStats.total)}；专项不占用基础日计划。</p>
+          <p className="hint section-gap">此处每日金额仅反映基础生活支出；专项金额计入上方的月度额度。</p>
 
           {planOn && isSelectedSat && (
             <div className="section-gap">
@@ -334,19 +323,9 @@ export function CalendarPage({ store }: Props) {
               ))}
             </div>
           )}
-          {selectedSundryAllocations.length > 0 && (
-            <div className="grocery-summary-pill section-gap">
-              <strong>当日日用品分摊 · 专项 {formatRmb(selectedSundryAllocations.reduce((sum, item) => sum + item.amount, 0))}</strong>
-              {selectedSundryAllocations.map(({ tx, amount }) => (
-                <p className="hint" key={tx.id} style={{ margin: '4px 0 0' }}>
-                  {tx.sundryProduct ?? tx.note ?? '日用品'} · 今日计入 {formatRmb(amount)}
-                </p>
-              ))}
-            </div>
-          )}
           <h3 className="cal-detail-title">当日流水</h3>
           {selectedTxs.length === 0 ? (
-            <EmptyState icon={<IconEmptyDay />} title="这天没有新流水" hint={selectedAcAllocations.length || selectedSundryAllocations.length ? '上方已计入分摊费用' : '可去「记账」补一笔'} />
+            <EmptyState icon={<IconEmptyDay />} title="这天没有新流水" hint={selectedAcAllocations.length ? '上方已计入空调日分摊' : '可去「记账」补一笔'} />
           ) : (
             <ul className="tx-list">
               {selectedTxs.map((tx) => (
