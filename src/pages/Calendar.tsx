@@ -27,6 +27,9 @@ import {
   monthBasicUsed,
   monthPaceSnapshot,
   monthSpecialUsed,
+  plannedBasicForMonth,
+  specialBasicAllowanceUsed,
+  surplusBasicAllowance,
   weekdayLabel,
   type BudgetStatus,
 } from '../utils/budget';
@@ -64,6 +67,9 @@ export function CalendarPage({ store }: Props) {
     ? pace.basicPlanned - pace.basicUsed
     : settings.basicBudget - pace.basicUsed;
   const specialMonthUsed = monthSpecialUsed(transactions, settings, currentYm, { includeSpecial: true });
+  const monthlyPlannedBasic = plannedBasicForMonth(currentYm, settings);
+  const extraBasicAllowance = surplusBasicAllowance(settings, currentYm);
+  const extraBasicUsed = specialBasicAllowanceUsed(transactions, settings, currentYm);
 
   const [cursor, setCursor] = useState(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
@@ -85,7 +91,7 @@ export function CalendarPage({ store }: Props) {
     >();
     for (const d of days) {
       const dateStr = format(d, 'yyyy-MM-dd');
-      const used = dayNetBasic(transactions, dateStr, opts);
+      const used = dayNetBasic(transactions, dateStr, opts, settings);
       const plan = getDailyPlanAmount(dateStr, settings);
       const remain = Math.round((plan - used) * 100) / 100;
       const status = planOn ? dailyStatus(Math.max(0, used), plan) : 'safe';
@@ -142,6 +148,22 @@ export function CalendarPage({ store }: Props) {
             />
           </>
         ) : <p className="hint">在预算设置中填写专项月额度后，这里会单独显示使用进度。</p>}
+      </GlassCard>
+      <GlassCard title="多余基础支出 · 本月额度" className="cal-pace-card">
+        <p className="hint cal-pace-caption">
+          {formatRmb(settings.basicBudget)} 基础预算 − 本月计划 {formatRmb(monthlyPlannedBasic)}
+        </p>
+        <ProgressBar
+          label="特例请客优先使用"
+          used={extraBasicUsed}
+          budget={extraBasicAllowance}
+          status={budgetStatus(extraBasicUsed, extraBasicAllowance)}
+          extra={
+            settings.basicBudget - monthlyPlannedBasic < 0
+              ? '月计划超过基础预算，特例支出将直接扣基础预算'
+              : '用完后，超出部分扣减普通基础支出结余'
+          }
+        />
       </GlassCard>
       <GlassCard
         title="日历"

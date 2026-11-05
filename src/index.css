@@ -863,6 +863,26 @@ a {
   height: 22px;
 }
 
+.bottom-nav-7 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.bottom-nav-7 .nav-item {
+  min-width: 0;
+  padding: 4px 0;
+  min-height: 50px;
+  font-size: clamp(0.48rem, 2vw, 0.58rem);
+  letter-spacing: -0.02em;
+}
+
+.bottom-nav-7 .nav-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
 .nav-item {
   display: flex;
   flex-direction: column;
@@ -2765,6 +2785,31 @@ html[data-palette="lilac"] {
   grid-template-columns: 1fr auto;
   gap: 6px;
   align-items: center;
+}
+
+.wallet-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+
+.wallet-history-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.wallet-history-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.wallet-history-list li > div strong {
+  overflow-wrap: anywhere;
 }
 
 .pantry-pick-btn {

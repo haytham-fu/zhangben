@@ -70,7 +70,7 @@ export interface Category {
 }
 
 /** Transfer into/out of a 小荷包 (piggy-bank style) */
-export type WalletTransferSource = 'total' | 'basic' | 'special' | 'settle';
+export type WalletTransferSource = 'total' | 'basic' | 'special' | 'settle' | 'pig' | 'income';
 
 export interface WalletTransfer {
   id: string;
@@ -163,6 +163,8 @@ export interface Transaction {
   groceryLotIds?: string[];
   /** 做饭时用到的库存 id */
   pantryUseIds?: string[];
+  /** Number of meals consumed for each pantry lot by this cooking record. */
+  pantryUseMeals?: Record<string, number>;
   /** 从库存估算计入本餐的 RMB */
   pantryCostRmb?: number;
 }

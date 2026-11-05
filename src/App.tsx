@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { SettingsPage } from './pages/Settings';
 import { TransactionList } from './pages/TransactionList';
 import { WalletsPage } from './pages/Wallets';
+import { PantryPanel } from './components/PantryPanel';
 import { consumeDeepLinkFromLocation, type DeepLinkAddPrefill } from './utils/deepLink';
 import { consumePairCodeFromLocation, fetchSyncPackFromUrl } from './utils/sync';
 
@@ -128,6 +129,9 @@ export default function App() {
         aria-hidden={tab !== 'wallets'}
       >
         <WalletsPage store={store} />
+      </div>
+      <div className={`page-view ${tab === 'pantry' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'pantry'}>
+        <PantryPanel store={store} />
       </div>
       <div className={`page-view ${tab === 'list' ? '' : 'page-view--hidden'}`} aria-hidden={tab !== 'list'}>
         <TransactionList store={store} />

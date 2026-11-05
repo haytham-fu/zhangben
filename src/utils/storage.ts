@@ -51,6 +51,11 @@ function normalizeTransactions(list: unknown): Transaction[] {
       isGroceryPurchase: Boolean(tx.isGroceryPurchase),
       groceryLotIds: Array.isArray(tx.groceryLotIds) ? tx.groceryLotIds.map(String) : undefined,
       pantryUseIds: Array.isArray(tx.pantryUseIds) ? tx.pantryUseIds.map(String) : undefined,
+      pantryUseMeals: tx.pantryUseMeals && typeof tx.pantryUseMeals === 'object'
+        ? Object.fromEntries(Object.entries(tx.pantryUseMeals)
+            .filter(([, meals]) => typeof meals === 'number' && Number.isFinite(meals) && meals > 0)
+            .map(([id, meals]) => [id, Math.min(10000, Math.round(meals * 10) / 10)]))
+        : undefined,
       pantryCostRmb:
         typeof tx.pantryCostRmb === 'number' && Number.isFinite(tx.pantryCostRmb)
           ? roundMoney(tx.pantryCostRmb)

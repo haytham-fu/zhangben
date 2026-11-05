@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { ModalPortal } from '../components/ModalPortal';
-import { PantryPanel } from '../components/PantryPanel';
 import { ProgressBar } from '../components/ProgressBar';
 import type { Store } from '../hooks/useStore';
 import type { Wallet, WalletTransferSource } from '../types';
@@ -13,6 +12,7 @@ import {
   pickCuteName,
   pickWalletColor,
   settlementDelta,
+  sourceAvail,
   transferableRemain,
   WALLET_COLORS,
 } from '../utils/wallets';
@@ -57,6 +57,7 @@ export function WalletsPage({ store }: Props) {
   const [edit, setEdit] = useState<EditDraft | null>(null);
   const [adding, setAdding] = useState<AddDraft | null>(null);
   const [transfer, setTransfer] = useState<TransferDraft | null>(null);
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
 
   const pig = useMemo(() => wallets.find((w) => isPigWallet(w)) ?? null, [wallets]);
   const userWallets = useMemo(
@@ -214,6 +215,9 @@ export function WalletsPage({ store }: Props) {
             </div>
           )}
           <div className="wallet-card-actions" style={{ marginTop: 10, justifyContent: 'stretch' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedWalletId(pig.id)}>
+              查看小钱猪收支明细
+            </button>
             {settled ? (
               <span className="hint">本月（{currentYm}）已结算</span>
             ) : (
@@ -310,8 +314,6 @@ export function WalletsPage({ store }: Props) {
         </GlassCard>
       </div>
 
-      <PantryPanel store={store} />
-
       <GlassCard title="我的小荷包">
           <ul className="wallet-list">
             {userWallets.map((w) => {
@@ -325,6 +327,9 @@ export function WalletsPage({ store }: Props) {
                       <span className="hint">已存 {formatRmb(saved)}</span>
                     </div>
                     <div className="wallet-card-actions">
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedWalletId(w.id)}>
+                        收支明细
+                      </button>
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
@@ -372,6 +377,45 @@ export function WalletsPage({ store }: Props) {
             })}
           </ul>
       </GlassCard>
+
+      {selectedWalletId && (() => {
+        const selectedWallet = wallets.find((w) => w.id === selectedWalletId);
+        if (!selectedWallet) return null;
+        const txRows = transactions
+          .filter((tx) => tx.walletId === selectedWalletId)
+          .map((tx) => ({
+            id: `tx-${tx.id}`,
+            date: tx.date,
+            note: tx.note || tx.categoryId,
+            amount: tx.type === 'income' ? tx.amountRmb : -tx.amountRmb,
+            label: tx.type === 'income' ? '收入' : '支出',
+          }));
+        const transferRows = (selectedWallet.transfers ?? []).map((item) => ({
+          id: `transfer-${item.id}`,
+          date: item.createdAt.slice(0, 10),
+          note: item.note || (item.direction === 'in' ? '转入' : '转出'),
+          amount: item.direction === 'in' ? item.amount : -item.amount,
+          label: '转账',
+        }));
+        const rows = [...txRows, ...transferRows].sort((a, b) => b.date.localeCompare(a.date));
+        return (
+          <GlassCard title={`${selectedWallet.name} · 收支明细`} action={
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedWalletId(null)}>收起</button>
+          }>
+            <p className="hint">当前余额 {formatRmb(selectedWallet.balance)} · 支出、收入及转入转出记录</p>
+            {rows.length === 0 ? <p className="hint">还没有收支记录</p> : (
+              <ul className="wallet-history-list">
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <div><strong>{row.note}</strong><span className="hint">{row.date} · {row.label}</span></div>
+                    <strong className={row.amount >= 0 ? 'pos' : 'neg'}>{row.amount >= 0 ? '+' : '−'}{formatRmb(Math.abs(row.amount))}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </GlassCard>
+        );
+      })()}
 
       {adding && (
         <ModalPortal>
@@ -445,6 +489,7 @@ export function WalletsPage({ store }: Props) {
                   <div className="chip-row">
                     {(
                       [
+                        ...(transfer.direction === 'in' ? [['pig', '从小钱猪转入'] as const] : []),
                         ['total', '本月总预算剩余'],
                         ['basic', '基础剩余'],
                         ['special', '专项剩余'],
@@ -461,7 +506,7 @@ export function WalletsPage({ store }: Props) {
                     ))}
                   </div>
                   <p className="hint" style={{ marginTop: 6 }}>
-                    当前可转约 {formatRmb(canTransfer)}（总预算剩余扣去已存小荷包）
+                    当前可转约 {formatRmb(sourceAvail(transfer.source, settings, wallets, transactions, currentYm))}
                   </p>
                 </div>
               )}

@@ -21,6 +21,7 @@ interface Props {
 export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
   const { pantryItems, todayStr, cookFromPantry, removePantryItem } = store;
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allEatenIds, setAllEatenIds] = useState<Set<string>>(new Set());
   const [showBuy, setShowBuy] = useState(false);
   const [date, setDate] = useState(todayStr);
   const [note, setNote] = useState('');
@@ -36,8 +37,8 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
   );
 
   const total = useMemo(
-    () => roundMoney(selectedItems.reduce((s, p) => s + nextPantryMealCost(p), 0)),
-    [selectedItems],
+    () => roundMoney(selectedItems.reduce((s, p) => s + (allEatenIds.has(p.id) ? pantryRemainingValue([p]) : nextPantryMealCost(p)), 0)),
+    [selectedItems, allEatenIds],
   );
 
   function toggle(id: string) {
@@ -60,6 +61,7 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
     cookFromPantry({
       date,
       pantryIds: selectedItems.map((p) => p.id),
+      allEatenIds: [...allEatenIds],
       note: note.trim() || undefined,
       paymentMethod: 'other',
     });
@@ -151,13 +153,31 @@ export function CookFromPantryFlow({ store, onCancel, onDone }: Props) {
                       <span>
                         <strong>{p.name}</strong>
                         <span className="hint">
-                          剩 {p.mealsLeft}/{p.mealsTotal} 顿 · 本次约 {formatRmb(nextPantryMealCost(p))}
+                          {allEatenIds.has(p.id)
+                            ? `全部吃完 · 补记剩余 ${p.mealsLeft} 顿 ${formatRmb(pantryRemainingValue([p]))}`
+                            : `剩 ${p.mealsLeft}/${p.mealsTotal} 顿 · 本次约 ${formatRmb(nextPantryMealCost(p))}`}
                         </span>
                       </span>
                     </span>
                     <span className={`pantry-check ${on ? 'on' : ''}`} aria-hidden>
                       {on ? '✓' : ''}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`chip pantry-backfill-cta ${allEatenIds.has(p.id) ? 'active' : ''}`}
+                    onClick={() => {
+                      setAllEatenIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(p.id)) next.delete(p.id);
+                        else next.add(p.id);
+                        return next;
+                      });
+                      setSelected((prev) => new Set(prev).add(p.id));
+                    }}
+                    aria-pressed={allEatenIds.has(p.id)}
+                  >
+                    {allEatenIds.has(p.id) ? '已选：全部吃完，补录' : '已经全部吃完，补录'}
                   </button>
                   <button
                     type="button"

@@ -225,6 +225,8 @@ export function sourceAvail(
   if (source === 'basic') return Math.max(0, bucketRemain(settings, txs, ym, 'basic'));
   if (source === 'special') return Math.max(0, bucketRemain(settings, txs, ym, 'special'));
   if (source === 'settle') return 0;
+  if (source === 'pig') return Math.max(0, wallets.find(isPigWallet)?.balance ?? 0);
+  if (source === 'income') return 0;
   return Math.max(0, transferableRemain(settings, wallets, txs, ym));
 }
 
@@ -309,7 +311,9 @@ function normalizeTransfers(raw: unknown): WalletTransfer[] {
         t.source === 'total' ||
         t.source === 'basic' ||
         t.source === 'special' ||
-        t.source === 'settle'
+        t.source === 'settle' ||
+        t.source === 'pig' ||
+        t.source === 'income'
           ? t.source
           : undefined,
       ym: typeof t.ym === 'string' ? t.ym : undefined,

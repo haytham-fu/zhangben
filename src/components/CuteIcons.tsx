@@ -253,7 +253,7 @@ export function IconPayment({ method, size = 18 }: { method: PaymentMethod; size
   );
 }
 
-export type NavIconId = 'home' | 'calendar' | 'add' | 'wallets' | 'list' | 'settings';
+export type NavIconId = 'home' | 'calendar' | 'add' | 'wallets' | 'pantry' | 'list' | 'settings';
 
 export function NavCuteIcon({ id, size = 26 }: { id: NavIconId; size?: number }) {
   switch (id) {
@@ -265,6 +265,16 @@ export function NavCuteIcon({ id, size = 26 }: { id: NavIconId; size?: number })
       return <IconAdd size={size} />;
     case 'wallets':
       return <IconWallet size={size} />;
+    case 'pantry':
+      return (
+        <Svg size={size}>
+          <circle cx="24" cy="24" r="20" fill="#CFFAFE" />
+          <rect x="13" y="10" width="22" height="29" rx="4" fill="#0EA5E9" />
+          <path d="M16 13h16v11H16z" fill="#E0F2FE" />
+          <path d="M16 27h16v9H16z" fill="#BAE6FD" />
+          <path d="M28 17v4M28 30v3" stroke="#0284C7" strokeWidth="2" strokeLinecap="round" />
+        </Svg>
+      );
     case 'list':
       return <IconList size={size} />;
     case 'settings':

@@ -7,13 +7,14 @@ import {
 } from 'react';
 import { NavCuteIcon, type NavIconId } from './CuteIcons';
 
-export type TabId = 'home' | 'calendar' | 'add' | 'wallets' | 'list' | 'settings';
+export type TabId = 'home' | 'calendar' | 'add' | 'wallets' | 'pantry' | 'list' | 'settings';
 
 const TABS: { id: TabId; icon: NavIconId; label: string }[] = [
   { id: 'home', icon: 'home', label: '总览' },
   { id: 'calendar', icon: 'calendar', label: '日历' },
   { id: 'add', icon: 'add', label: '记账' },
   { id: 'wallets', icon: 'wallets', label: '小荷包' },
+  { id: 'pantry', icon: 'pantry', label: '冰箱库存' },
   { id: 'list', icon: 'list', label: '流水明细' },
   { id: 'settings', icon: 'settings', label: '设置' },
 ];
@@ -132,7 +133,7 @@ export function BottomNav({ active, onChange }: Props) {
     travelDir > 0 ? 'left center' : travelDir < 0 ? 'right center' : 'center center';
 
   return (
-    <nav ref={navRef} className="bottom-nav bottom-nav-6 liquid-dock" aria-label="主导航">
+    <nav ref={navRef} className="bottom-nav bottom-nav-7 liquid-dock" aria-label="主导航">
       <span
         className={[
           'dock-liquid-blob',

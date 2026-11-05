@@ -45,6 +45,59 @@ export function getDailyPlanAmount(dateStr: string, settings: Settings): number 
   }
 }
 
+export function plannedBasicForMonth(ym: string, settings: Settings): number {
+  const plan = settings.dailyPlan;
+  let cents = 4 * (
+    Math.round(plan.mon * 100) + Math.round(plan.tue * 100) + Math.round(plan.wed * 100) +
+    Math.round(plan.thu * 100) + Math.round(plan.fri * 100) + Math.round(plan.sun * 100)
+  ) + 2 * Math.round(plan.satPlay * 100) + 2 * Math.round(plan.satStay * 100);
+  const start = startOfMonth(parseLocalDate(`${ym}-01`));
+  const dayCount = eachDayOfInterval({ start, end: endOfMonth(start) }).length;
+  for (let offset = 28; offset < dayCount; offset += 1) {
+    const date = addDays(start, offset);
+    if (getDay(date) === 6) {
+      cents += Math.round(((plan.satPlay + plan.satStay) / 2) * 100);
+    } else {
+      cents += Math.round(getDailyPlanAmount(format(date, 'yyyy-MM-dd'), settings) * 100);
+    }
+  }
+  return cents / 100;
+}
+
+export function surplusBasicAllowance(settings: Settings, ym: string): number {
+  return Math.max(0, Math.round((settings.basicBudget - plannedBasicForMonth(ym, settings)) * 100) / 100);
+}
+
+export function specialBasicAllowanceUsed(txs: Transaction[], settings: Settings, ym: string): number {
+  const hostTotal = txs.reduce((sum, tx) => {
+    if (normalizeTxDate(tx.date).slice(0, 7) !== ym || tx.bucket !== 'basic' ||
+        !tx.isSpecial || !isBudgetTrackedExpense(tx)) return sum;
+    return sum + tx.amountRmb;
+  }, 0);
+  return Math.min(surplusBasicAllowance(settings, ym), Math.round(hostTotal * 100) / 100);
+}
+
+function specialBasicOverflowOnDate(txs: Transaction[], settings: Settings, dateStr: string): number {
+  const ym = normalizeTxDate(dateStr).slice(0, 7);
+  const allowance = surplusBasicAllowance(settings, ym);
+  const expenses = txs
+    .filter((tx) => normalizeTxDate(tx.date).slice(0, 7) === ym &&
+      normalizeTxDate(tx.date) <= dateStr && tx.bucket === 'basic' &&
+      tx.isSpecial && isBudgetTrackedExpense(tx))
+    .sort((a, b) => normalizeTxDate(a.date).localeCompare(normalizeTxDate(b.date)) ||
+      (a.createdAt ?? '').localeCompare(b.createdAt ?? '') || a.id.localeCompare(b.id));
+  let accumulated = 0;
+  let overflow = 0;
+  for (const tx of expenses) {
+    const before = accumulated;
+    accumulated = Math.round((accumulated + tx.amountRmb) * 100) / 100;
+    if (normalizeTxDate(tx.date) === dateStr) {
+      overflow += Math.max(0, accumulated - allowance) - Math.max(0, before - allowance);
+    }
+  }
+  return Math.round(overflow * 100) / 100;
+}
+
 /** 买菜只入库，做饭使用食材时才计入预算。 */
 export function isBudgetExpense(tx: Transaction): boolean {
   return tx.type === 'expense' && tx.kind !== 'topup' && !tx.isGroceryPurchase;
@@ -56,7 +109,7 @@ export function isBudgetTrackedExpense(tx: Transaction): boolean {
 }
 
 export function isBudgetIncome(tx: Transaction): boolean {
-  return tx.type === 'income';
+  return tx.type === 'income' && tx.walletId !== PIG_WALLET_ID;
 }
 
 export function filterMonth(txs: Transaction[], ym: string): Transaction[] {
@@ -109,7 +162,9 @@ function netSpendInMonth(
 ): number {
   let cents = 0;
   for (const tx of txs) {
-    if (tx.bucket !== bucket || (!opts.includeSpecial && tx.isSpecial)) continue;
+    const basicException = bucket === 'basic' && tx.type === 'expense' && tx.isSpecial &&
+      isBudgetTrackedExpense(tx);
+    if (tx.bucket !== bucket || (!opts.includeSpecial && tx.isSpecial && !basicException)) continue;
     if (isBudgetIncome(tx)) {
       if (normalizeTxDate(tx.date).startsWith(ym)) cents -= Math.round(tx.amountRmb * 100);
     } else cents += Math.round(expenseInMonth(tx, ym) * 100);
@@ -184,14 +239,18 @@ export function dayNetBasic(
   txs: Transaction[],
   dateStr: string,
   opts: { includeSpecial: boolean },
+  settings?: Settings,
 ): number {
   const day = normalizeTxDate(dateStr);
   let cents = 0;
   for (const tx of txs) {
-    if (tx.bucket !== 'basic' || (!opts.includeSpecial && tx.isSpecial)) continue;
+    const basicException = tx.bucket === 'basic' && tx.type === 'expense' && tx.isSpecial;
+    if (tx.bucket !== 'basic' || (!opts.includeSpecial && tx.isSpecial && !basicException)) continue;
+    if (basicException) continue;
     if (isBudgetIncome(tx) && normalizeTxDate(tx.date) === day) cents -= Math.round(tx.amountRmb * 100);
     else cents += Math.round(expenseOnDate(tx, day) * 100);
   }
+  if (settings) cents += Math.round(specialBasicOverflowOnDate(txs, settings, day) * 100);
   return cents / 100;
 }
 
@@ -267,7 +326,7 @@ export function monthPaceSnapshot(
   let basicCents = Math.round(opening.basicUsed * 100);
   for (const date of dates) {
     const day = format(date, 'yyyy-MM-dd');
-    basicCents += Math.round(dayNetBasic(txs, day, opts) * 100);
+    basicCents += Math.round(dayNetBasic(txs, day, opts, settings) * 100);
   }
   const basicUsed = basicCents / 100;
   const specialUsed = monthSpecialUsed(txs, settings, ym, opts);

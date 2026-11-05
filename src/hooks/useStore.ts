@@ -17,7 +17,7 @@ import type {
   WalletTransferSource,
 } from '../types';
 import { getRate, toRmb, toRmbWithRate } from '../utils/currency';
-import { costPerMeal, groceryCostRmb, nextPantryMealCost, roundMoney } from '../utils/grocery';
+import { costPerMeal, groceryCostRmb, nextPantryMealCost, pantryRemainingValue, roundMoney } from '../utils/grocery';
 import { loadState, saveState } from '../utils/storage';
 import { LEGACY_STORAGE_KEY, STORAGE_KEY } from '../utils/defaults';
 import { monthBasicUsed, monthSpecialUsed, dayNetBasic, getDailyPlanAmount, isBudgetExpense } from '../utils/budget';
@@ -61,6 +61,7 @@ export interface AddTxInput {
   isGroceryPurchase?: boolean;
   groceryLotIds?: string[];
   pantryUseIds?: string[];
+  pantryUseMeals?: Record<string, number>;
   pantryCostRmb?: number;
 }
 
@@ -255,11 +256,14 @@ export function useStore() {
         isGroceryPurchase: input.isGroceryPurchase,
         groceryLotIds: input.groceryLotIds,
         pantryUseIds: input.pantryUseIds,
+        pantryUseMeals: input.pantryUseMeals,
         pantryCostRmb: input.pantryCostRmb,
       };
       let wallets = s.wallets;
       if (isBudgetExpense(tx) && tx.walletId) {
         wallets = mapWalletsSpend(wallets, tx.walletId, tx.amountRmb);
+      } else if (tx.type === 'income' && tx.walletId === PIG_WALLET_ID) {
+        wallets = mapWalletsRefund(wallets, tx.walletId, tx.amountRmb);
       }
       wallets = reconcileSettledAcExpense(s.settings, wallets, null, tx);
       return { ...s, transactions: [tx, ...s.transactions], wallets };
@@ -288,6 +292,12 @@ export function useStore() {
       }
       if (isSpend) {
         wallets = mapWalletsSpend(wallets, nextTx.walletId, nextTx.amountRmb);
+      }
+      if (prev.type === 'income' && prev.walletId === PIG_WALLET_ID) {
+        wallets = mapWalletsSpend(wallets, PIG_WALLET_ID, prev.amountRmb);
+      }
+      if (nextTx.type === 'income' && nextTx.walletId === PIG_WALLET_ID) {
+        wallets = mapWalletsRefund(wallets, PIG_WALLET_ID, nextTx.amountRmb);
       }
       wallets = reconcileSettledAcExpense(s.settings, wallets, prev, nextTx);
       return {
@@ -322,14 +332,16 @@ export function useStore() {
       let wallets = s.wallets;
       if (isBudgetExpense(prev) && prev.walletId) {
         wallets = mapWalletsRefund(wallets, prev.walletId, prev.amountRmb);
+      } else if (prev.type === 'income' && prev.walletId === PIG_WALLET_ID) {
+        wallets = mapWalletsSpend(wallets, PIG_WALLET_ID, prev.amountRmb);
       }
       wallets = reconcileSettledAcExpense(s.settings, wallets, prev, null);
       const usedIds = new Set(prev.pantryUseIds ?? []);
-      const pantryItems = usedIds.size === 0 ? s.pantryItems : s.pantryItems.map((item) =>
-        usedIds.has(item.id)
-          ? { ...item, mealsLeft: Math.min(item.mealsTotal, Math.round((item.mealsLeft + 1) * 10) / 10) }
-          : item,
-      );
+      const pantryItems = usedIds.size === 0 ? s.pantryItems : s.pantryItems.map((item) => {
+        if (!usedIds.has(item.id)) return item;
+        const mealsUsed = prev.pantryUseMeals?.[item.id] ?? 1;
+        return { ...item, mealsLeft: Math.min(item.mealsTotal, Math.round((item.mealsLeft + mealsUsed) * 10) / 10) };
+      });
       return {
         ...s,
         transactions: s.transactions.filter((t) => t.id !== id),
@@ -445,7 +457,9 @@ export function useStore() {
         }
         const note =
           direction === 'in'
-            ? source === 'basic'
+            ? source === 'pig'
+              ? `从小钱猪转入「${w.name}」`
+              : source === 'basic'
               ? '从基础剩余转入'
               : source === 'special'
                 ? '从专项剩余转入'
@@ -453,6 +467,14 @@ export function useStore() {
             : '转出至本月预算池';
         const next = [...wallets];
         next[idx] = applyTransferToWallet(w, direction, amt, source, note, ym);
+        if (direction === 'in' && source === 'pig') {
+          const pigIdx = next.findIndex((item) => isPigWallet(item));
+          if (pigIdx < 0) {
+            result = { ok: false, message: '未找到小钱猪' };
+            return s;
+          }
+          next[pigIdx] = applyTransferToWallet(next[pigIdx], 'out', amt, 'pig', note, ym);
+        }
         result = { ok: true };
         return { ...s, wallets: next };
       });
@@ -533,6 +555,7 @@ export function useStore() {
     (opts: {
       date: string;
       pantryIds: string[];
+      allEatenIds?: string[];
       paymentMethod?: PaymentMethod;
       note?: string;
       walletId?: string | null;
@@ -542,14 +565,21 @@ export function useStore() {
       setState((s) => {
         const selected = s.pantryItems.filter((p) => opts.pantryIds.includes(p.id) && p.mealsLeft > 0);
         if (selected.length === 0 && !(opts.extraRmb && opts.extraRmb > 0)) return s;
-        const pantryCost = roundMoney(selected.reduce((sum, p) => sum + nextPantryMealCost(p), 0));
+        const allEatenIds = new Set(opts.allEatenIds ?? []);
+        const pantryUseMeals = Object.fromEntries(selected.map((p) => [
+          p.id,
+          allEatenIds.has(p.id) ? p.mealsLeft : Math.min(1, p.mealsLeft),
+        ]));
+        const pantryCost = roundMoney(selected.reduce((sum, p) => sum +
+          (allEatenIds.has(p.id) ? pantryRemainingValue([p]) : nextPantryMealCost(p)), 0));
         const extra = roundMoney(Math.max(0, opts.extraRmb ?? 0));
         const total = roundMoney(pantryCost + extra);
         const names = selected.map((p) => p.name).join('、');
         const idSet = new Set(opts.pantryIds);
         const nextPantry = s.pantryItems.map((p) => {
           if (!idSet.has(p.id) || p.mealsLeft <= 0) return p;
-          const left = Math.round(Math.max(0, p.mealsLeft - 1) * 10) / 10;
+          const consumedMeals = pantryUseMeals[p.id] ?? 0;
+          const left = Math.round(Math.max(0, p.mealsLeft - consumedMeals) * 10) / 10;
           return { ...p, mealsLeft: left };
         });
         const sourceWallet = selected.length > 0 && selected.every((p) => p.walletId === selected[0].walletId)
@@ -572,6 +602,7 @@ export function useStore() {
           walletId: opts.walletId ?? sourceWallet ?? null,
           createdAt: new Date().toISOString(),
           pantryUseIds: selected.map((p) => p.id),
+          pantryUseMeals,
           pantryCostRmb: pantryCost,
         };
         let wallets = s.wallets;
@@ -668,7 +699,7 @@ export function useStore() {
     const specialUsed = monthSpecialUsed(state.transactions, state.settings, currentYm, opts);
     const totalBudget = state.settings.basicBudget + state.settings.specialBudget;
     const totalUsed = Math.round((basicUsed + specialUsed) * 100) / 100;
-    const todayUsed = dayNetBasic(state.transactions, todayStr, opts);
+    const todayUsed = dayNetBasic(state.transactions, todayStr, opts, state.settings);
     const todayPlan = getDailyPlanAmount(todayStr, state.settings);
     return {
       basicUsed,

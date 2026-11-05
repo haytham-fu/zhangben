@@ -25,6 +25,8 @@ import {
 } from '../utils/capacityEstimate';
 import { ModalPortal } from '../components/ModalPortal';
 import { OcrImport } from './OcrImport';
+import { PIG_WALLET_ID } from '../utils/wallets';
+import { surplusBasicAllowance } from '../utils/budget';
 
 interface Props {
   store: Store;
@@ -251,7 +253,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
       sundryUnit: cat.id === 'sundries' && sundryProfile ? sundryCapacityUnit : undefined,
       paymentMethod: pay,
       rate: resolved.rate,
-      walletId: kind === 'topup' || type === 'income' ? null : walletId,
+      walletId: kind === 'topup' ? null : walletId,
       });
       resetForm();
       setMode('hub');
@@ -386,6 +388,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 type="button"
                 className="btn btn-primary btn-block add-hero-btn"
                 onClick={() => {
+                  resetForm();
                   setMode('income');
                   setType('income');
                   setKind('normal');
@@ -468,7 +471,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                 </div>
               )}
               <div className="toggle-row">
-                <span style={{ fontSize: '0.85rem' }}>特例（请客等）</span>
+                <span style={{ fontSize: '0.85rem' }}>特例请客（优先用多余基础支出）</span>
                 <button
                   type="button"
                   className={`toggle ${isSpecial ? 'on' : ''}`}
@@ -476,6 +479,11 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   aria-label="特例"
                 />
               </div>
+              {isSpecial && (
+                <p className="hint" style={{ marginTop: -4 }}>
+                  本月多余基础支出额度约 {formatRmb(surplusBasicAllowance(settings, date.slice(0, 7)))}；超出部分计入普通基础支出。
+                </p>
+              )}
               <div className="toggle-row">
                 <span style={{ fontSize: '0.85rem' }}>
                   月度支出（计入专项）
@@ -861,6 +869,7 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
             </p>
 
             {mode === 'income' && (
+              <>
               <div className="field">
                 <label>分类</label>
                 <div className="cat-grid">
@@ -877,6 +886,18 @@ export function AddTransaction({ store, onDone, deepLink = null, onDeepLinkConsu
                   ))}
                 </div>
               </div>
+              <div className="field section-gap">
+                <label>收入去向</label>
+                <div className="chip-row">
+                  <button type="button" className={`chip ${walletId !== PIG_WALLET_ID ? 'active' : ''}`} onClick={() => setWalletId(null)}>
+                    记入本月收入
+                  </button>
+                  <button type="button" className={`chip ${walletId === PIG_WALLET_ID ? 'active' : ''}`} onClick={() => setWalletId(PIG_WALLET_ID)}>
+                    存入小钱猪
+                  </button>
+                </div>
+              </div>
+              </>
             )}
 
             {mode === 'topup' && (
